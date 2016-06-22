@@ -35,14 +35,19 @@
 
 void __cpuid(uint32_t cpu_info[4], uint32_t leaf, uint32_t subleaf)
 {
+
     __asm__ __volatile__ (
-            "cpuid"
-            : "=a" (cpu_info[0]),
-            "=b" (cpu_info[1]),
-            "=c" (cpu_info[2]),
-            "=d" (cpu_info[3])
-            : "a" (leaf), "c" (subleaf)
-            );
+        "push %%ebx      \n\t" /* save %ebx */
+        "cpuid            \n\t"
+        "mov %%ebx, %1   \n\t" /* save what cpuid just put in %ebx */
+        "pop %%ebx       \n\t" /* restore the old %ebx */
+        : "=a" (cpu_info[0]),
+        "=r" (cpu_info[1]),
+        "=c" (cpu_info[2]),
+        "=d" (cpu_info[3])
+        : "a" (leaf), "c"(subleaf)
+        : "cc"
+    );
 }
 
 static int get_drng_support(void)
