@@ -112,7 +112,9 @@ static bool hwrng_handle_req_queue(void)
 			len = MAX_HWRNG_MSG_SIZE;
 
 		/* get rng data */
-		hwrng_dev_get_rng_data(rng_data, len);
+		if (NO_ERROR != hwrng_dev_get_rng_data(rng_data, len)) {
+			TLOGE("failed (%d) to get rng data\n");
+		}
 
 		/* send reply */
 		int rc = tipc_send_single_buf(ctx->chan, rng_data, len);

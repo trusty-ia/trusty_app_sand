@@ -22,6 +22,6 @@ __BEGIN_CDECLS
 void hwrng_init_srv_provider(void);
 int  hwrng_start_service(void);
 
-void hwrng_dev_get_rng_data(uint8_t *buf, size_t buf_len);
+int hwrng_dev_get_rng_data(uint8_t *buf, size_t buf_len);
 
 __END_CDECLS

@@ -23,14 +23,8 @@ MODULE_SRCS := \
 	$(LOCAL_DIR)/main.c \
 	$(LOCAL_DIR)/hwrng_srv.c \
 	$(LOCAL_DIR)/hwkey_srv.c \
-
-ifeq (true,$(call TOBOOL,$(WITH_FAKE_HWRNG)))
-MODULE_SRCS += $(LOCAL_DIR)/hwrng_srv_fake_provider.c
-endif
-
-ifeq (true,$(call TOBOOL,$(WITH_FAKE_HWKEY)))
-MODULE_SRCS += $(LOCAL_DIR)/hwkey_srv_fake_provider.c
-endif
+	$(LOCAL_DIR)/hwrng_srv_provider.c \
+	$(LOCAL_DIR)/hwkey_srv_provider.c
 
 MODULE_DEPS := \
 	app/trusty \
