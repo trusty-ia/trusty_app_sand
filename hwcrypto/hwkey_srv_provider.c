@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2016 The Android Open Source Project
+ * Copyright (C) 2016 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,10 +35,9 @@
 #include "hwkey_srv_priv.h"
 
 #define LOCAL_TRACE  1
-#define LOG_TAG      "hwkey_fake_srv"
+#define LOG_TAG      "hwkey_srv"
 
-#warning "This keys needs to be replaced with REAL device key"
-static uint8_t fake_device_key[32] = "this is a fake device key";
+#if LK_DEBUGLEVEL > 1
 
 /* This input vector is taken from RFC 5869 (Extract-and-Expand HKDF) */
 static const uint8_t IKM[] = { 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b, 0x0b,
@@ -91,28 +91,79 @@ static bool hkdf_self_test(void)
 }
 
 /*
+ *  Run Self test
+ */
+static bool hwkey_self_test(void)
+{
+	TLOGI("hwkey self test\n");
+
+	if (!hkdf_self_test())
+		return false;
+
+	TLOGI("hwkey self test: PASSED\n");
+	return true;
+}
+#endif
+
+static int get_device_huk(uint8_t *huk, uint32_t huk_len)
+{
+	int rc = 0;
+	trusty_device_info_t dev_info = {0};
+
+	/* get device info */
+	rc = get_device_info(&dev_info);
+	if (rc != NO_ERROR ) {
+		TLOGE("failed (%d) to get device infomation\n", rc);
+		return ERR_IO;
+	}
+
+	if(dev_info.size != sizeof(trusty_device_info_t)){
+		TLOGE("trusty_device_info_t size is mismatched\n", rc);
+		return ERR_BAD_LEN;
+	}
+
+	memcpy(huk, dev_info.seed, huk_len);
+	memset(&dev_info, 0, sizeof(trusty_device_info_t));
+	return NO_ERROR;
+}
+
+/*
  * Derive key V1 - HMAC SHA256 based Key derivation function
  */
 uint32_t derive_key_v1(const uuid_t *uuid,
 		       const uint8_t *ikm_data, size_t ikm_len,
 		       uint8_t *key_buf, size_t *key_len)
 {
+	int rc = 0;
+	uint8_t hw_device_key[BUP_MKHI_BOOTLOADER_SEED_LEN] = {0};
+
 	if (!ikm_len) {
 		*key_len = 0;
 		return HWKEY_ERR_BAD_LEN;
 	}
 
+	/* update the hw_device_key */
+	rc = get_device_huk(hw_device_key, sizeof(hw_device_key));
+	if(rc != NO_ERROR) {
+		TLOGE("failed (%d) to get device HUK\n", rc);
+		return rc;
+	}
+
 	if (!HKDF(key_buf, ikm_len, EVP_sha256(),
-		  (const uint8_t *)fake_device_key, sizeof(fake_device_key),
+		  (const uint8_t *)hw_device_key, sizeof(hw_device_key),
 		  (const uint8_t *)&uuid, sizeof(uuid),
 		  ikm_data, ikm_len)) {
 		TLOGE("HDKF failed 0x%x\n", ERR_get_error());
 		*key_len = 0;
+
+		/* clear the sensitive data */
+		memset(hw_device_key, 0, sizeof(hw_device_key));
 		memset(key_buf, 0, ikm_len);
 		return HWKEY_ERR_GENERIC;
 	}
 
 	*key_len = ikm_len;
+	memset(hw_device_key, 0, sizeof(hw_device_key));
 
 	return HWKEY_NO_ERROR;
 }
@@ -142,13 +193,21 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 	int rc;
 	int out_len;
 	EVP_CIPHER_CTX evp;
+	uint8_t hw_device_key[BUP_MKHI_BOOTLOADER_SEED_LEN] = {0};
 
 	assert(kbuf);
 	assert(klen);
 
 	EVP_CIPHER_CTX_init(&evp);
 
-	rc = EVP_EncryptInit_ex(&evp, EVP_aes_256_cbc(), NULL, fake_device_key, NULL);
+	/* update the hw_device_key */
+	rc = get_device_huk(hw_device_key, sizeof(hw_device_key));
+	if(rc != NO_ERROR) {
+		TLOGE("failed (%d) to get device HUK\n", rc);
+		goto evp_err;
+	}
+
+	rc = EVP_EncryptInit_ex(&evp, EVP_aes_256_cbc(), NULL, hw_device_key, NULL);
 	if (!rc)
 		goto evp_err;
 
@@ -181,6 +240,8 @@ evp_err:
 	TLOGE("EVP err 0x%x\n", ERR_get_error());
 other_err:
 	EVP_CIPHER_CTX_cleanup(&evp);
+	memset(hw_device_key, 0, sizeof(hw_device_key));
+
 	return HWKEY_ERR_GENERIC;
 }
 
@@ -196,34 +257,20 @@ static const struct hwkey_keyslot _keys[] = {
 };
 
 /*
- *  Run Self test
- */
-static bool hwkey_self_test(void)
-{
-	TLOGI("hwkey self test\n");
-
-	if (!hkdf_self_test())
-		return false;
-
-	TLOGI("hwkey self test: PASSED\n");
-	return true;
-}
-
-/*
  *  Initialize Fake HWKEY service provider
  */
 void hwkey_init_srv_provider(void)
 {
 	int rc;
+	TLOGI("Init hwkey service provider\n");
 
-	TLOGE("Init FAKE!!!! HWKEY service provider\n");
-	TLOGE("FAKE HWKEY service provider MUST be replaced with the REAL one\n");
-
+#if LK_DEBUGLEVEL > 1
 	/* run self test */
 	if (!hwkey_self_test()) {
 		TLOGE("hwkey_self_test failed\n");
 		abort();
 	}
+#endif
 
 	/* install key handlers */
 	hwkey_install_keys(_keys, countof(_keys));
@@ -231,7 +278,8 @@ void hwkey_init_srv_provider(void)
 	/* start service */
 	rc = hwkey_start_service();
 	if (rc != NO_ERROR ) {
-		TLOGE("failed (%d) to start HWKEY service\n");
+		TLOGE("failed (%d) to start HWKEY service\n", rc);
+		abort();
 	}
 }
 
