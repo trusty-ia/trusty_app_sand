@@ -110,20 +110,26 @@ static int get_device_huk(uint8_t *huk, uint32_t huk_len)
 	trusty_device_info_t dev_info = {0};
 
 	/* get device info */
-	rc = get_device_info(&dev_info);
+	rc = get_device_info(&dev_info, true);
 	if (rc != NO_ERROR ) {
 		TLOGE("failed (%d) to get device infomation\n", rc);
-		return ERR_IO;
+		rc = ERR_IO;
+		goto clear_sensitive_data;
 	}
 
 	if(dev_info.size != sizeof(trusty_device_info_t)){
 		TLOGE("trusty_device_info_t size is mismatched\n", rc);
-		return ERR_BAD_LEN;
+		rc = ERR_BAD_LEN;
+		goto clear_sensitive_data;
 	}
 
 	memcpy(huk, dev_info.seed, huk_len);
+	rc = NO_ERROR;
+
+clear_sensitive_data:
 	memset(&dev_info, 0, sizeof(trusty_device_info_t));
-	return NO_ERROR;
+	return rc;
+
 }
 
 /*
@@ -233,6 +239,7 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 	*klen = RPMB_SS_AUTH_KEY_SIZE;
 
 	EVP_CIPHER_CTX_cleanup(&evp);
+	memset(hw_device_key, 0, sizeof(hw_device_key));
 	return HWKEY_NO_ERROR;
 
 evp_err:
