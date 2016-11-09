@@ -26,7 +26,6 @@
 #include <interface/hwkey/hwkey.h>
 
 #include "common.h"
-#include "uuids.h"
 #include "hwkey_srv_priv.h"
 
 #define LOCAL_TRACE  1

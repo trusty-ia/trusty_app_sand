@@ -18,11 +18,9 @@
 #include <stdio.h>
 #include <trusty_app_manifest.h>
 
-#include "uuids.h"
-
 trusty_app_manifest_t TRUSTY_APP_MANIFEST_ATTRS trusty_app_manifest =
 {
-	.uuid = GEN_HWCRYPTO_UUID,
+	.uuid = HWCRYPTO_SRV_APP_UUID,
 
 	.config_options =
 	/* optional configuration options here */

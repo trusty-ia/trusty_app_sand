@@ -31,7 +31,6 @@
 #include <openssl/hkdf.h>
 
 #include "common.h"
-#include "uuids.h"
 #include "hwkey_srv_priv.h"
 
 #define LOCAL_TRACE  1
