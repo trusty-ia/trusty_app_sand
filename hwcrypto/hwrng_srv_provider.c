@@ -33,13 +33,13 @@
 
 static uint32_t g_drng_feature = 0;
 
-void __cpuid(uint32_t cpu_info[4], uint32_t leaf, uint32_t subleaf)
+void __cpuid(uint64_t cpu_info[4], uint64_t leaf, uint64_t subleaf)
 {
 	__asm__ __volatile__ (
-			"push %%ebx;" /* save the ebx */
+			"pushq %%rbx;" /* save the ebx */
 			"cpuid;"
-			"mov %%ebx, %1;" /* save what cpuid just put in ebx */
-			"pop %%ebx;" /* restore the old ebx */
+			"mov %%rbx, %1;" /* save what cpuid just put in ebx */
+			"popq %%rbx;" /* restore the old ebx */
 			: "=a" (cpu_info[0]),
 			"=r" (cpu_info[1]),
 			"=c" (cpu_info[2]),
@@ -51,7 +51,7 @@ void __cpuid(uint32_t cpu_info[4], uint32_t leaf, uint32_t subleaf)
 
 static void get_drng_support(void)
 {
-	uint32_t info[4];
+	uint64_t info[4];
 
 	/* CPUID: input in rax = 1. */
 	__cpuid(info, 1, 0);
