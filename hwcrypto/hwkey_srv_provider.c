@@ -156,7 +156,7 @@ uint32_t derive_key_v1(const uuid_t *uuid,
 
 	if (!HKDF(key_buf, ikm_len, EVP_sha256(),
 		  (const uint8_t *)hw_device_key, sizeof(hw_device_key),
-		  (const uint8_t *)&uuid, sizeof(uuid),
+		  (const uint8_t *)uuid, sizeof(uuid_t),
 		  ikm_data, ikm_len)) {
 		TLOGE("HDKF failed 0x%x\n", ERR_get_error());
 		*key_len = 0;
