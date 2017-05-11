@@ -158,6 +158,7 @@ static int drng_rand32(uint32_t *out)
 static int drng_rand_multiple4_buf(uint8_t *buf, size_t len)
 {
 	int i;
+	status_t rc;
 
 	if (len%4) {
 		TLOGE("the len isn't multiple of 4bytes\n");
@@ -170,11 +171,15 @@ static int drng_rand_multiple4_buf(uint8_t *buf, size_t len)
 			TLOGE("failed with rdseed32\n");
 			return ERR_IO;
 		}
-		memcpy(buf+i, &tmp_buf, sizeof(tmp_buf));
+		rc |= memcpy_s(buf+i, sizeof(tmp_buf), &tmp_buf, sizeof(tmp_buf));
 	}
-	return NO_ERROR;
+	return rc;
 }
 
+/*
+ * Caution: caller must ensure destination buffer not overflow
+ * Caller hwrng_handle_req_queue keeps len not larger than MAX_HWRNG_MSG_SIZE
+ */
 int hwrng_dev_get_rng_data(uint8_t *buf, size_t len)
 {
 	TLOGI("try to generate a random with len=%d\n", len);
@@ -184,7 +189,7 @@ int hwrng_dev_get_rng_data(uint8_t *buf, size_t len)
 			TLOGE("failed with drng_rand32\n");
 			return ERR_IO;
 		}
-		memcpy(buf, &tmp_buf, len);
+		memcpy_s(buf, len, &tmp_buf, len);
 		return NO_ERROR;
 	}
 
@@ -202,7 +207,7 @@ int hwrng_dev_get_rng_data(uint8_t *buf, size_t len)
 			TLOGE("failed with drng_rand32\n");
 			return ERR_IO;
 		}
-		memcpy(buf + len_multiple4, &tmp_buf, len);
+		memcpy_s(buf + len_multiple4, len, &tmp_buf, len);
 	}
 	return NO_ERROR;
 }

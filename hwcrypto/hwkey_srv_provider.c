@@ -123,8 +123,8 @@ static int get_device_huk(uint8_t *huk, uint32_t huk_len)
 		goto clear_sensitive_data;
 	}
 
-	memcpy(huk, dev_info.seed, huk_len);
-	rc = NO_ERROR;
+	/* huk_len is length of huk array, use it as destination size */
+	rc = memcpy_s(huk, huk_len, dev_info.seed, huk_len);
 
 clear_sensitive_data:
 	memset(&dev_info, 0, sizeof(trusty_device_info_t));
