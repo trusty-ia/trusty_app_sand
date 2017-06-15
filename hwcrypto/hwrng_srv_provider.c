@@ -158,7 +158,6 @@ static int drng_rand32(uint32_t *out)
 static int drng_rand_multiple4_buf(uint8_t *buf, size_t len)
 {
 	int i;
-	status_t rc;
 
 	if (len%4) {
 		TLOGE("the len isn't multiple of 4bytes\n");
@@ -171,9 +170,12 @@ static int drng_rand_multiple4_buf(uint8_t *buf, size_t len)
 			TLOGE("failed with rdseed32\n");
 			return ERR_IO;
 		}
-		rc |= memcpy_s(buf+i, sizeof(tmp_buf), &tmp_buf, sizeof(tmp_buf));
+
+		if (NO_ERROR != memcpy_s(buf+i, sizeof(tmp_buf), &tmp_buf, sizeof(tmp_buf)))
+			return ERR_IO;
 	}
-	return rc;
+
+	return NO_ERROR;
 }
 
 /*
@@ -195,7 +197,9 @@ int hwrng_dev_get_rng_data(uint8_t *buf, size_t len)
 
 	const size_t len_multiple4 = len & ~3;
 	if (NO_ERROR != drng_rand_multiple4_buf(buf, len_multiple4)) {
+		/* If failed to get random data, clear filled data */
 		TLOGE("failed with drng_rand_multiple4_buf\n");
+		memset(buf, 0, len_multiple4);
 		return ERR_IO;
 	}
 	len -= len_multiple4;
