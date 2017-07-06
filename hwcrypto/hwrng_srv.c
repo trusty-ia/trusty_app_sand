@@ -112,12 +112,13 @@ static bool hwrng_handle_req_queue(void)
 			len = MAX_HWRNG_MSG_SIZE;
 
 		/* get rng data */
-		if (NO_ERROR != hwrng_dev_get_rng_data(rng_data, len)) {
-			TLOGE("failed (%d) to get rng data\n");
+		int rc = hwrng_dev_get_rng_data(rng_data, len);
+		if (rc != NO_ERROR) {
+			TLOGE("failed (%d) to get rng data\n", rc);
 		}
 
 		/* send reply */
-		int rc = tipc_send_single_buf(ctx->chan, rng_data, len);
+		rc = tipc_send_single_buf(ctx->chan, rng_data, len);
 		if (rc < 0) {
 			if (rc == ERR_NOT_ENOUGH_BUFFER) {
 				/* mark it as send_blocked */
@@ -237,7 +238,7 @@ static void hwrng_port_handler(const uevent_t *ev, void *priv)
 		/* allocate state */
 		struct hwrng_chan_ctx *ctx = calloc(1, sizeof(*ctx));
 		if (!ctx) {
-			TLOGE("failed (%d) to alloc state for chan %d\n", chan);
+			TLOGE("fail to alloc state for chan %d\n", chan);
 			close(chan);
 			return;
 		}

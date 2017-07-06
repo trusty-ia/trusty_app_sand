@@ -118,7 +118,7 @@ static int get_device_huk(uint8_t *huk, uint32_t huk_len)
 	}
 
 	if(dev_info.size != sizeof(trusty_device_info_t)){
-		TLOGE("trusty_device_info_t size is mismatched\n", rc);
+		TLOGE("trusty_device_info_t size is mismatched\n");
 		rc = ERR_BAD_LEN;
 		goto clear_sensitive_data;
 	}
@@ -218,7 +218,7 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 
 	uint min_kbuf_len = RPMB_SS_AUTH_KEY_SIZE + EVP_CIPHER_CTX_key_length(&evp);
 	if (kbuf_len < min_kbuf_len) {
-		TLOGE("buffer too small: (%zd vs. %zd )\n", kbuf_len,  min_kbuf_len);
+		TLOGE("buffer too small: (%u vs. %u )\n", kbuf_len,  min_kbuf_len);
 		goto other_err;
 	}
 
@@ -227,7 +227,7 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 		goto evp_err;
 
 	if ((size_t)out_len != RPMB_SS_AUTH_KEY_SIZE) {
-		TLOGE("output length mismatch (%zd vs %zd)\n",
+		TLOGE("output length mismatch (%u vs %u)\n",
 			(size_t)out_len, sizeof(rpmb_salt));
 		goto other_err;
 	}
