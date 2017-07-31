@@ -23,7 +23,7 @@
 #include <trusty_std.h>
 
 
-#define LOCAL_TRACE  1
+#define LOCAL_TRACE  0
 #define LOG_TAG      "hwcrypto_srv"
 
 #include "common.h"
