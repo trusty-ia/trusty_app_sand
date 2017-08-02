@@ -123,8 +123,14 @@ static int get_device_huk(uint8_t *huk, uint32_t huk_len)
 		goto clear_sensitive_data;
 	}
 
-	/* huk_len is length of huk array, use it as destination size */
-	rc = memcpy_s(huk, huk_len, dev_info.seed, huk_len);
+	/*
+	 * huk_len is length of huk array, use it as destination size
+	 * copy from 1st index from seed list. Since seed_list is sorted
+	 * by svn in descending order, so seed_list[0] will contain the
+	 * current seed and highest svn.
+	 */
+
+	rc = memcpy_s(huk, huk_len, dev_info.seed_list[0].seed, huk_len);
 
 clear_sensitive_data:
 	memset(&dev_info, 0, sizeof(trusty_device_info_t));
