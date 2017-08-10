@@ -195,60 +195,16 @@ static uint8_t rpmb_salt[RPMB_SS_AUTH_KEY_SIZE] = {
 static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 				     uint8_t *kbuf, size_t kbuf_len, size_t *klen)
 {
-	int rc;
-	int out_len;
-	EVP_CIPHER_CTX evp;
-	uint8_t hw_device_key[BUP_MKHI_BOOTLOADER_SEED_LEN] = {0};
+	/* Keep align with Bootloader rpmb hardcode key */
+	uint8_t temp[33] = "12345ABCDEF1234512345ABCDEF12345";
 
 	assert(kbuf);
 	assert(klen);
 
-	EVP_CIPHER_CTX_init(&evp);
-
-	/* update the hw_device_key */
-	rc = get_device_huk(hw_device_key, sizeof(hw_device_key));
-	if(rc != NO_ERROR) {
-		TLOGE("failed (%d) to get device HUK\n", rc);
-		goto evp_err;
-	}
-
-	rc = EVP_EncryptInit_ex(&evp, EVP_aes_256_cbc(), NULL, hw_device_key, NULL);
-	if (!rc)
-		goto evp_err;
-
-	uint min_kbuf_len = RPMB_SS_AUTH_KEY_SIZE + EVP_CIPHER_CTX_key_length(&evp);
-	if (kbuf_len < min_kbuf_len) {
-		TLOGE("buffer too small: (%u vs. %u )\n", kbuf_len,  min_kbuf_len);
-		goto other_err;
-	}
-
-	rc = EVP_EncryptUpdate(&evp, kbuf, &out_len, rpmb_salt, sizeof(rpmb_salt));
-	if (!rc)
-		goto evp_err;
-
-	if ((size_t)out_len != RPMB_SS_AUTH_KEY_SIZE) {
-		TLOGE("output length mismatch (%u vs %u)\n",
-			(size_t)out_len, sizeof(rpmb_salt));
-		goto other_err;
-	}
-
-	rc = EVP_EncryptFinal_ex(&evp, NULL, &out_len);
-	if (!rc)
-		goto evp_err;
-
+	memcpy(kbuf, temp, 32);
 	*klen = RPMB_SS_AUTH_KEY_SIZE;
 
-	EVP_CIPHER_CTX_cleanup(&evp);
-	memset(hw_device_key, 0, sizeof(hw_device_key));
 	return HWKEY_NO_ERROR;
-
-evp_err:
-	TLOGE("EVP err 0x%x\n", ERR_get_error());
-other_err:
-	EVP_CIPHER_CTX_cleanup(&evp);
-	memset(hw_device_key, 0, sizeof(hw_device_key));
-
-	return HWKEY_ERR_GENERIC;
 }
 
 /*
