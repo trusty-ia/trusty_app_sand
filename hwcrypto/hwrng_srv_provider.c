@@ -157,7 +157,7 @@ static int drng_rand32(uint32_t *out)
 
 static int drng_rand_multiple4_buf(uint8_t *buf, size_t len)
 {
-	int i;
+	uint32_t i;
 
 	if (len%4) {
 		TLOGE("the len isn't multiple of 4bytes\n");
