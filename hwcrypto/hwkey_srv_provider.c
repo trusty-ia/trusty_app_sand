@@ -104,10 +104,15 @@ static bool hwkey_self_test(void)
 }
 #endif
 
-static int get_device_huk(uint8_t *huk, uint32_t huk_len)
+static int get_device_huk(uint8_t *huk_buf, uint32_t huk_buf_size)
 {
 	int rc = 0;
 	trusty_device_info_t dev_info = {0};
+
+	if(!huk_buf) {
+		TLOGE("the input param is NULL\n", 0);
+		return ERR_IO;
+	}
 
 	/* get device info */
 	rc = get_device_info(&dev_info, GET_SEED);
@@ -124,13 +129,11 @@ static int get_device_huk(uint8_t *huk, uint32_t huk_len)
 	}
 
 	/*
-	 * huk_len is length of huk array, use it as destination size
-	 * copy from 1st index from seed list. Since seed_list is sorted
-	 * by svn in descending order, so seed_list[0] will contain the
+	 * Since seed_list is sorted by svn in descending order, so seed_list[0] will contain the
 	 * current seed and highest svn.
 	 */
-
-	rc = memcpy_s(huk, huk_len, dev_info.seed_list[0].seed, huk_len);
+	rc = memcpy_s(huk_buf, huk_buf_size,
+		dev_info.seed_list[0].seed, BUP_MKHI_BOOTLOADER_SEED_LEN);
 
 clear_sensitive_data:
 	memset(&dev_info, 0, sizeof(trusty_device_info_t));
