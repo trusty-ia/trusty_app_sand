@@ -110,7 +110,7 @@ static int get_device_huk(uint8_t *huk, uint32_t huk_len)
 	trusty_device_info_t dev_info = {0};
 
 	/* get device info */
-	rc = get_device_info(&dev_info, true);
+	rc = get_device_info(&dev_info, GET_SEED);
 	if (rc != NO_ERROR ) {
 		TLOGE("failed (%d) to get device infomation\n", rc);
 		rc = ERR_IO;
