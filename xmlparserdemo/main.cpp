@@ -159,13 +159,11 @@ int main(void)
         return 0;
     }
 
-    for (element = tinyxml2_FindElement(root, NULL, "book", NULL, NULL); element; element = tinyxml2_FindElement(root, element, "book", NULL, NULL)) {
+    for (element = tinyxml2_FindElement(root, NULL, "book", NULL, NULL); element; element = tinyxml2_FindElement(root, element, "book", NULL, NULL))
         TLOGI("category: %s\n", element->Attribute("category"));
-    }
 
-    for (element = tinyxml2_FindElement(root, NULL, "title", NULL, NULL); element; element = tinyxml2_FindElement(root, element, "title", NULL, NULL)) {
+    for (element = tinyxml2_FindElement(root, NULL, "title", NULL, NULL); element; element = tinyxml2_FindElement(root, element, "title", NULL, NULL))
         TLOGI("title: %s\n", element->GetText());
-    }
 
     return 0;
 }
