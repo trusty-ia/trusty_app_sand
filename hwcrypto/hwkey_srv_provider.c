@@ -104,12 +104,15 @@ static bool hwkey_self_test(void)
 }
 #endif
 
-static int get_device_huk(uint8_t *huk_buf, uint32_t huk_buf_size)
+static int get_device_index_huk(uint8_t index, uint8_t *huk, uint32_t huk_len)
 {
 	int rc = 0;
 	trusty_device_info_t dev_info = {0};
 
-	if(!huk_buf) {
+	if (index >= BOOTLOADER_SEED_MAX_ENTRIES)
+		return HWKEY_ERR_NOT_VALID;
+
+	if(!huk) {
 		TLOGE("the input param is NULL\n", 0);
 		return ERR_IO;
 	}
@@ -122,7 +125,7 @@ static int get_device_huk(uint8_t *huk_buf, uint32_t huk_buf_size)
 		goto clear_sensitive_data;
 	}
 
-	if(dev_info.size != sizeof(trusty_device_info_t)){
+	if (dev_info.size != sizeof(trusty_device_info_t)){
 		TLOGE("trusty_device_info_t size is mismatched\n");
 		rc = ERR_BAD_LEN;
 		goto clear_sensitive_data;
@@ -132,8 +135,8 @@ static int get_device_huk(uint8_t *huk_buf, uint32_t huk_buf_size)
 	 * Since seed_list is sorted by svn in descending order, so seed_list[0] will contain the
 	 * current seed and highest svn.
 	 */
-	rc = memcpy_s(huk_buf, huk_buf_size,
-		dev_info.seed_list[0].seed, BUP_MKHI_BOOTLOADER_SEED_LEN);
+
+	rc = memcpy_s(huk, huk_len, dev_info.seed_list[index].seed, huk_len);
 
 clear_sensitive_data:
 	memset(&dev_info, 0, sizeof(trusty_device_info_t));
@@ -141,45 +144,84 @@ clear_sensitive_data:
 
 }
 
+static int get_seed_number(uint32_t *num)
+{
+	int rc;
+	trusty_device_info_t dev_info = {0};
+
+	/* get device info */
+	rc = get_device_info(&dev_info, false);
+	if (rc != NO_ERROR ) {
+		TLOGE("failed (%d) to get device infomation.\n", rc);
+		return rc;
+	}
+	assert(dev_info.num_seeds > 0 &&
+		dev_info.num_seeds <= BOOTLOADER_SEED_MAX_ENTRIES);
+
+	*num = dev_info.num_seeds;
+	return HWKEY_NO_ERROR;
+}
+
 /*
- * Derive key V1 - HMAC SHA256 based Key derivation function
+ * Derive key with Index - HMAC SHA256 based Key derivation function with Seed[index]
  */
-uint32_t derive_key_v1(const uuid_t *uuid,
-		       const uint8_t *ikm_data, size_t ikm_len,
-		       uint8_t *key_buf, size_t *key_len)
+uint32_t derive_key_with_index(const uint32_t index, const uuid_t *uuid,
+				const uint8_t *ikm_data, size_t ikm_len,
+				uint8_t *key_buf, size_t *key_len)
 {
 	int rc = 0;
 	uint8_t hw_device_key[BUP_MKHI_BOOTLOADER_SEED_LEN] = {0};
+	uint32_t seed_num = 0;
 
-	if (!ikm_len) {
+	if (index >= BOOTLOADER_SEED_MAX_ENTRIES) {
+		return HWKEY_ERR_NOT_VALID;
+	}
+
+	if (!ikm_len || get_seed_number(&seed_num)) {
 		*key_len = 0;
 		return HWKEY_ERR_BAD_LEN;
 	}
 
-	/* update the hw_device_key */
-	rc = get_device_huk(hw_device_key, sizeof(hw_device_key));
-	if(rc != NO_ERROR) {
-		TLOGE("failed (%d) to get device HUK\n", rc);
-		return rc;
-	}
+	if (index < seed_num) {
+		/* update the hw_device_key */
+		rc = get_device_index_huk(index, hw_device_key, sizeof(hw_device_key));
+		if (rc != NO_ERROR) {
+			TLOGE("failed (%d) to get device HUK\n", rc);
+			return rc;
+		}
 
-	if (!HKDF(key_buf, ikm_len, EVP_sha256(),
-		  (const uint8_t *)hw_device_key, sizeof(hw_device_key),
-		  (const uint8_t *)uuid, sizeof(uuid_t),
-		  ikm_data, ikm_len)) {
-		TLOGE("HDKF failed 0x%x\n", ERR_get_error());
-		*key_len = 0;
-
-		/* clear the sensitive data */
+		if (!HKDF(key_buf, ikm_len, EVP_sha256(),
+			  (const uint8_t *)hw_device_key, sizeof(hw_device_key),
+			  (const uint8_t *)uuid, sizeof(uuid_t),
+			  ikm_data, ikm_len)) {
+			TLOGE("HDKF failed 0x%x\n", ERR_get_error());
+			*key_len = 0;
+			/* clear the sensitive data */
+			memset(hw_device_key, 0, sizeof(hw_device_key));
+			memset(key_buf, 0, ikm_len);
+			return HWKEY_ERR_GENERIC;
+		}
 		memset(hw_device_key, 0, sizeof(hw_device_key));
-		memset(key_buf, 0, ikm_len);
-		return HWKEY_ERR_GENERIC;
 	}
 
 	*key_len = ikm_len;
-	memset(hw_device_key, 0, sizeof(hw_device_key));
 
 	return HWKEY_NO_ERROR;
+ }
+
+/*
+ * Derive key V1 - HMAC SHA256 based Key derivation function
+ */
+uint32_t derive_key_v1(const uuid_t *uuid,
+			const uint8_t *ikm_data, size_t ikm_len,
+			uint8_t *key_buf, size_t *key_len)
+{
+	return derive_key_with_index(0, uuid, ikm_data, ikm_len, key_buf, key_len);
+}
+
+static int get_device_huk(uint8_t *huk, uint32_t huk_len)
+{
+	return get_device_index_huk(0, huk, huk_len);
 }
 
 /*
@@ -191,27 +233,77 @@ uint32_t derive_key_v1(const uuid_t *uuid,
 /* Secure storage service app uuid */
 static const uuid_t ss_uuid = SECURE_STORAGE_SERVER_APP_UUID;
 
-static uint8_t rpmb_salt[RPMB_SS_AUTH_KEY_SIZE] = {
-	0x42, 0x18, 0xa9, 0xf2, 0xf6, 0xb1, 0xf5, 0x35,
-	0x06, 0x37, 0x9f, 0xba, 0xcc, 0x1a, 0xc9, 0x36,
-	0xf4, 0x83, 0x04, 0xd4, 0xf1, 0x65, 0x91, 0x32,
-	0xa6, 0xae, 0xda, 0x27, 0x4d, 0x21, 0xdb, 0x40
-};
+static const uuid_t crypto_uuid = HWCRYPTO_SRV_APP_UUID;
 
 /*
- * Generate RPMB Secure Storage Authentication key
+ * Generate RPMB Secure Storage Authentication key from seed[index]
  */
-static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
-				     uint8_t *kbuf, size_t kbuf_len, size_t *klen)
+static uint32_t get_rpmb_ss_auth_key_with_index(uint8_t index,
+				uint8_t *kbuf, size_t kbuf_len, size_t *klen)
 {
-	/* Keep align with Bootloader rpmb hardcode key */
-	uint8_t temp[33] = "12345ABCDEF1234512345ABCDEF12345";
+	uint8_t rpmb_key[RPMB_SS_AUTH_KEY_SIZE] = {0};
+	trusty_device_info_t dev_info = {0};
+	int ret = HWKEY_ERR_GENERIC;
+	uint8_t serial[MMC_PROD_NAME_WITH_PSN_LEN] = {0};
 
 	assert(kbuf);
 	assert(klen);
 
-	memcpy(kbuf, temp, 32);
+	if (NO_ERROR != get_device_info(&dev_info, true)) {
+		TLOGE("failed to get device infomation\n");
+		goto out;
+	}
+
+	if (index < dev_info.num_seeds) {
+		/* Clear Byte 2 and 0 for CID[6] PRV and CID[0] CRC for eMMC Field Firmware Updates
+		 * serial[0] = cid[0];  -- CRC
+		 * serial[2] = cid[6];  -- PRV
+		 */
+		memcpy_s(serial, sizeof(serial), dev_info.serial, sizeof(dev_info.serial));
+		serial[0] ^= serial[0];
+		serial[2] ^= serial[2];
+
+		if (!HKDF(rpmb_key, sizeof(rpmb_key), EVP_sha256(),
+			  (const uint8_t *)dev_info.seed_list[index].seed, BUP_MKHI_BOOTLOADER_SEED_LEN,
+			  (const uint8_t *)&crypto_uuid, sizeof(uuid_t),
+			  (const uint8_t *)serial, sizeof(serial))) {
+			TLOGE("HDKF failed 0x%x\n", ERR_get_error());
+			goto out;
+		}
+		memcpy_s(kbuf, RPMB_SS_AUTH_KEY_SIZE, rpmb_key, RPMB_SS_AUTH_KEY_SIZE);
+	}
 	*klen = RPMB_SS_AUTH_KEY_SIZE;
+
+	ret = HWKEY_NO_ERROR;
+out:
+	memset(rpmb_key, 0, sizeof(rpmb_key));
+	memset(&dev_info, 0, sizeof(dev_info));
+
+	return ret;
+}
+
+/*
+ * Generate RPMB Secure Storage Authentication keys for all seeds
+ */
+static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
+				     uint8_t *kbuf, size_t kbuf_len, size_t *klen)
+{
+	uint32_t i;
+	size_t klen_for_once = 0;
+
+	assert(kbuf);
+	assert(klen);
+
+	*klen = 0;
+
+	for (i = 0; i < BOOTLOADER_SEED_MAX_ENTRIES; i++) {
+		if (HWKEY_NO_ERROR != get_rpmb_ss_auth_key_with_index(
+					i, kbuf + i * RPMB_SS_AUTH_KEY_SIZE, kbuf_len, &klen_for_once)) {
+			memset(kbuf, 0, kbuf_len);
+			return HWKEY_ERR_GENERIC;
+		}
+		*klen += klen_for_once;
+	}
 
 	return HWKEY_NO_ERROR;
 }
