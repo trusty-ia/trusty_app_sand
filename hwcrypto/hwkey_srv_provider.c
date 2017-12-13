@@ -113,7 +113,7 @@ static int get_device_index_huk(uint8_t index, uint8_t *huk, uint32_t huk_len)
 		return HWKEY_ERR_NOT_VALID;
 
 	if(!huk) {
-		TLOGE("the input param is NULL\n", 0);
+		TLOGE("the input param is NULL\n");
 		return ERR_IO;
 	}
 
@@ -150,7 +150,7 @@ static int get_seed_number(uint32_t *num)
 	trusty_device_info_t dev_info = {0};
 
 	/* get device info */
-	rc = get_device_info(&dev_info, false);
+	rc = get_device_info(&dev_info, GET_NONE);
 	if (rc != NO_ERROR ) {
 		TLOGE("failed (%d) to get device infomation.\n", rc);
 		return rc;
@@ -249,7 +249,7 @@ static uint32_t get_rpmb_ss_auth_key_with_index(uint8_t index,
 	assert(kbuf);
 	assert(klen);
 
-	if (NO_ERROR != get_device_info(&dev_info, true)) {
+	if (NO_ERROR != get_device_info(&dev_info, GET_SEED)) {
 		TLOGE("failed to get device infomation\n");
 		goto out;
 	}
