@@ -27,7 +27,7 @@
 #define LOCAL_TRACE  1
 #define LOG_TAG      "hwrng_srv"
 
-#define DRNG_MAX_TRIES 3
+#define DRNG_MAX_TRIES 4
 #define DRNG_HAS_RDRAND 0X1
 #define DRNG_HAS_RDSEED  0X2
 
@@ -138,21 +138,21 @@ static int rdrand64(uint64_t *out)
 
 static int drng_rand32(uint32_t *out)
 {
+	int rc = ERR_NOT_FOUND;
+
 	if (g_drng_feature & DRNG_HAS_RDSEED) {
-		if (NO_ERROR != rdseed32(out)) {
-			TLOGE("failed with rdseed32\n");
-			return ERR_IO;
-		}
-	} else if (g_drng_feature & DRNG_HAS_RDRAND) {
-		if (NO_ERROR != rdrand32(out)) {
-			TLOGE("failed with rdrand32\n");
-			return ERR_IO;
-		}
-	} else {
-		TLOGE("DRNG_NO_SUPPORT!\n");
-		return ERR_NOT_FOUND;
+		rc = rdseed32(out);
+		if (NO_ERROR == rc)
+			return rc;
 	}
-	return NO_ERROR;
+
+	if (g_drng_feature & DRNG_HAS_RDRAND) {
+		rc = rdrand32(out);
+		if (NO_ERROR != rc)
+			TLOGE("failed with rdrand32\n");
+	}
+
+	return rc;
 }
 
 static int drng_rand_multiple4_buf(uint8_t *buf, size_t len)
