@@ -39,6 +39,13 @@ uint32_t derive_key_v1(const uuid_t *uuid,
 		       const uint8_t *ikm_data, size_t ikm_len,
 		       uint8_t *key_data, size_t *key_len);
 
+uint32_t generate_crypto_context(uint8_t *data, size_t *data_len);
+
+uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
+			uint8_t *dst, size_t *dst_len);
+
+uint32_t get_ssek(uint8_t *ssek, size_t *ssek_len);
+
 __END_CDECLS
 
 
