@@ -200,6 +200,67 @@ static int hwkey_handle_derive_key_cmd(struct hwkey_chan_ctx *ctx,
 }
 
 /*
+ * Handle generate enc seeds cmd
+ */
+static int hwkey_handle_generate_crypto_ctx_cmd(struct hwkey_chan_ctx *ctx,
+				       struct hwkey_msg *hdr)
+{
+	int rc;
+	size_t key_len = hdr->arg1;
+
+	hdr->status = generate_crypto_context(key_data, &key_len);
+
+	rc = hwkey_send_rsp(ctx, hdr, key_data, key_len);
+	if (key_len) {
+		/* sanitize key buffer */
+		memset(key_data, 0, key_len);
+	}
+
+	return rc;
+}
+
+/*
+ * Handle transfer enc seeds cmd
+ */
+static int hwkey_handle_exchange_crypto_ctx_cmd(struct hwkey_chan_ctx *ctx,
+				       struct hwkey_msg *hdr,
+				       const uint8_t *data, size_t data_len)
+{
+	int rc;
+	size_t key_len = hdr->arg1;
+
+	hdr->status = exchange_crypto_context(data, data_len,
+			    key_data, &key_len);
+	rc = hwkey_send_rsp(ctx, hdr, key_data, key_len);
+	if (key_len) {
+		/* sanitize key buffer */
+		memset(key_data, 0, key_len);
+	}
+
+	return rc;
+}
+
+/*
+ * Handle get ssek cmd
+ */
+static int hwkey_handle_get_ssek_cmd(struct hwkey_chan_ctx *ctx,
+				       struct hwkey_msg *hdr)
+{
+	int rc;
+	size_t key_len = hdr->arg1;
+
+	hdr->status = get_ssek(key_data, &key_len);
+
+	rc = hwkey_send_rsp(ctx, hdr, key_data, key_len);
+	if (key_len) {
+		/* sanitize key buffer */
+		memset(key_data, 0, key_len);
+	}
+
+	return rc;
+}
+
+/*
  *  Read and queue HWKEY request message
  */
 static int hwkey_chan_handle_msg(struct hwkey_chan_ctx *ctx)
@@ -227,6 +288,21 @@ static int hwkey_chan_handle_msg(struct hwkey_chan_ctx *ctx)
 
 	case HWKEY_DERIVE:
 		rc = hwkey_handle_derive_key_cmd(ctx, &hdr, req_data, req_data_len);
+		memset(req_data, 0, req_data_len); /* sanitize request buffer */
+		break;
+
+	case HWKEY_GENERATE_CRYPTO_CTX:
+		rc = hwkey_handle_generate_crypto_ctx_cmd(ctx, &hdr);
+		memset(req_data, 0, req_data_len); /* sanitize request buffer */
+		break;
+
+	case HWKEY_EXCHANGE_CRYPTO_CTX:
+		rc = hwkey_handle_exchange_crypto_ctx_cmd(ctx, &hdr, req_data, req_data_len);
+		memset(req_data, 0, req_data_len); /* sanitize request buffer */
+		break;
+
+	case HWKEY_GET_SSEK:
+		rc = hwkey_handle_get_ssek_cmd(ctx, &hdr);
 		memset(req_data, 0, req_data_len); /* sanitize request buffer */
 		break;
 
