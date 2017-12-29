@@ -710,6 +710,17 @@ out:
 /*
  * Derive key V1 - HMAC SHA256 based Key derivation function
  */
+#ifdef TARGET_PRODUCE_ICL
+uint32_t derive_key_v1(const uuid_t *uuid,
+			const uint8_t *ikm_data, size_t ikm_len,
+			uint8_t *key_buf, size_t *key_len)
+{
+	*key_len = ikm_len;
+	memset(key_buf, 0, ikm_len);
+
+	return HWKEY_NO_ERROR;
+}
+#else
 uint32_t derive_key_v1(const uuid_t *uuid,
 			const uint8_t *ikm_data, size_t ikm_len,
 			uint8_t *key_buf, size_t *key_len)
@@ -764,6 +775,7 @@ out:
 
 	return rc;
 }
+#endif
 
 static int get_device_huk(uint8_t *huk, uint32_t huk_len)
 {
@@ -860,7 +872,9 @@ static const struct hwkey_keyslot _keys[] = {
 void hwkey_init_srv_provider(void)
 {
 	int rc;
+#ifndef TARGET_PRODUCE_ICL
 	uint32_t seed_count, i;
+#endif
 
 	TLOGI("Init hwkey service provider\n");
 
@@ -882,6 +896,7 @@ void hwkey_init_srv_provider(void)
 		abort();
 	}
 
+#ifndef TARGET_PRODUCE_ICL
 	if (get_seed_count(&seed_count))
 		abort();
 
@@ -892,5 +907,6 @@ void hwkey_init_srv_provider(void)
 			abort();
 		}
 	}
+#endif
 }
 
