@@ -373,7 +373,7 @@ static int get_device_index_huk(uint8_t index, uint8_t *huk, uint32_t huk_len)
 	int rc = 0;
 	trusty_device_info_t dev_info = {0};
 
-	if (index >= BOOTLOADER_SEED_MAX_ENTRIES)
+	if (index >= CSE_SEED_MAX_ENTRIES)
 		return HWKEY_ERR_NOT_VALID;
 
 	if(!huk) {
@@ -389,19 +389,19 @@ static int get_device_index_huk(uint8_t index, uint8_t *huk, uint32_t huk_len)
 		goto clear_sensitive_data;
 	}
 
-	if (dev_info.size != sizeof(trusty_device_info_t)){
+	if (dev_info.sec_info.size_of_this_struct != sizeof(device_sec_info_t)){
 		TLOGE("trusty_device_info_t size is mismatched\n");
 		rc = ERR_BAD_LEN;
 		goto clear_sensitive_data;
 	}
 
 	/*
-	 * huk_len is length of huk array, use it as destination size
-	 * copy from 1st index from seed list. Since seed_list is sorted
-	 * by svn in descending order, so seed_list[0] will contain the
-	 * current seed and highest svn.
+	 * Since seed_list is sorted by svn in descending order, so dseed_list[0] will contain the
+	 * current seed and highest svn. dseed_list[0].seed, only lower 32 bytes
+	 * will be used for now by Trusty. But keep higher 32 bytes for future extension.
 	 */
-	rc = memcpy_s(huk, huk_len, dev_info.seed_list[index].seed, huk_len);
+
+	rc = memcpy_s(huk, huk_len, dev_info.sec_info.dseed_list[index].seed, huk_len);
 
 clear_sensitive_data:
 	secure_memzero(&dev_info, sizeof(trusty_device_info_t));
@@ -419,9 +419,14 @@ static int get_seed_count(uint32_t *num)
 		TLOGE("failed (%d) to get device infomation.\n", rc);
 		return rc;
 	}
-	assert(dev_info.num_seeds > 0 &&
-		dev_info.num_seeds <= BOOTLOADER_SEED_MAX_ENTRIES);
-	*num = dev_info.num_seeds;
+
+	// this log will be removed after all platforms are fully enabled.
+	TLOGE("%s: The sec info platform is (%d)\n", __func__, dev_info.sec_info.platform);
+
+	assert(dev_info.sec_info.num_seeds > 0 &&
+		dev_info.sec_info.num_seeds <= CSE_SEED_MAX_ENTRIES);
+
+	*num = dev_info.sec_info.num_seeds;
 	return HWKEY_NO_ERROR;
 }
 
@@ -430,7 +435,7 @@ static uint8_t get_svn_by_index(uint8_t index)
 	trusty_device_info_t dev_info = {0};
 	uint8_t svn;
 
-	assert(index < BOOTLOADER_SEED_MAX_ENTRIES);
+	assert(index < CSE_SEED_MAX_ENTRIES);
 
 	/* get device info for svn*/
 	if (NO_ERROR != get_device_info(&dev_info, GET_SEED)) {
@@ -439,7 +444,7 @@ static uint8_t get_svn_by_index(uint8_t index)
 		assert(0);
 	}
 
-	svn = dev_info.seed_list[index].svn;
+	svn = dev_info.sec_info.dseed_list[index].cse_svn;
 	secure_memzero(&dev_info, sizeof(dev_info));
 
 	return svn;
@@ -449,7 +454,7 @@ static uint8_t get_svn_by_index(uint8_t index)
 static uint32_t get_aes_gcm_key(uint8_t index, uint8_t *aes_gcm_key, size_t key_len)
 {
 	int rc = -1;
-	uint8_t hw_device_key[BUP_MKHI_BOOTLOADER_SEED_LEN] = {0};
+	uint8_t hw_device_key[32] = {0};
 
 	assert(aes_gcm_key);
 
@@ -459,7 +464,7 @@ static uint32_t get_aes_gcm_key(uint8_t index, uint8_t *aes_gcm_key, size_t key_
 	}
 
 	if (!HKDF(aes_gcm_key, key_len, EVP_sha256(),
-		(const uint8_t *)hw_device_key, BUP_MKHI_BOOTLOADER_SEED_LEN,
+		(const uint8_t *)hw_device_key, 32,
 		(const uint8_t *)&crypto_uuid, sizeof(uuid_t),
 		gcm_info, sizeof(gcm_info))) {
 		TLOGE("get_aes_gcm_key HDKF failed 0x%x.\n", ERR_get_error());
@@ -801,17 +806,17 @@ static uint32_t get_rpmb_ss_auth_key_with_index(uint8_t index,
 		goto out;
 	}
 
-	if (index < dev_info.num_seeds) {
+	if (index < dev_info.sec_info.num_seeds) {
 		/* Clear Byte 2 and 0 for CID[6] PRV and CID[0] CRC for eMMC Field Firmware Updates
 		 * serial[0] = cid[0];  -- CRC
 		 * serial[2] = cid[6];  -- PRV
 		 */
-		memcpy_s(serial, sizeof(serial), dev_info.serial, sizeof(dev_info.serial));
+		memcpy_s(serial, sizeof(serial), dev_info.sec_info.serial, sizeof(dev_info.sec_info.serial));
 		serial[0] ^= serial[0];
 		serial[2] ^= serial[2];
 
 		if (!HKDF(rpmb_key, sizeof(rpmb_key), EVP_sha256(),
-			  (const uint8_t *)dev_info.seed_list[index].seed, BUP_MKHI_BOOTLOADER_SEED_LEN,
+			  (const uint8_t *)dev_info.sec_info.dseed_list[index].seed, 32,
 			  (const uint8_t *)&crypto_uuid, sizeof(uuid_t),
 			  (const uint8_t *)serial, sizeof(serial))) {
 			TLOGE("HDKF failed 0x%x\n", ERR_get_error());
@@ -836,6 +841,7 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 				     uint8_t *kbuf, size_t kbuf_len, size_t *klen)
 {
 	uint32_t i;
+	trusty_device_info_t dev_info = {0};
 	size_t klen_for_once = 0;
 
 	assert(kbuf);
@@ -843,13 +849,24 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 
 	*klen = 0;
 
-	for (i = 0; i < BOOTLOADER_SEED_MAX_ENTRIES; i++) {
-		if (HWKEY_NO_ERROR != get_rpmb_ss_auth_key_with_index(
-					i, kbuf + i * RPMB_SS_AUTH_KEY_SIZE, kbuf_len, &klen_for_once)) {
-			secure_memzero(kbuf, kbuf_len);
-			return HWKEY_ERR_GENERIC;
+	if (NO_ERROR != get_device_info(&dev_info, GET_NONE)) {
+		TLOGE("%s:failed to get device infomation\n", __func__);
+		return HWKEY_ERR_GENERIC;
+	}
+
+	if (dev_info.sec_info.platform == APL_PLATFORM) {
+		for (i = 0; i < dev_info.sec_info.num_seeds; i++) {
+			if (HWKEY_NO_ERROR != get_rpmb_ss_auth_key_with_index(
+						i, kbuf + i * RPMB_SS_AUTH_KEY_SIZE, kbuf_len, &klen_for_once)) {
+				secure_memzero(kbuf, kbuf_len);
+				return HWKEY_ERR_GENERIC;
+			}
+			*klen += klen_for_once;
 		}
-		*klen += klen_for_once;
+	} else {
+		//TODO: ICL and CWP rpmb key.
+		TLOGE("%s: platform is not APL!\n", __func__);
+		assert(0);
 	}
 
 	return HWKEY_NO_ERROR;
