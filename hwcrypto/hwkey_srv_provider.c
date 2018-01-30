@@ -382,7 +382,7 @@ static int get_device_index_huk(uint8_t index, uint8_t *huk, uint32_t huk_len)
 	}
 
 	/* get device info */
-	rc = get_device_info(&dev_info, GET_SEED);
+	rc = get_device_info(&dev_info);
 	if (rc != NO_ERROR ) {
 		TLOGE("failed (%d) to get device infomation\n", rc);
 		rc = ERR_IO;
@@ -414,19 +414,21 @@ static int get_seed_count(uint32_t *num)
 	trusty_device_info_t dev_info;
 
 	/* get device info */
-	rc = get_device_info(&dev_info, GET_NONE);
+	rc = get_device_info(&dev_info);
 	if (rc != NO_ERROR ) {
 		TLOGE("failed (%d) to get device infomation.\n", rc);
-		return rc;
+		secure_memzero(&dev_info, sizeof(trusty_device_info_t));
+		return HWKEY_ERR_GENERIC;
 	}
 
 	// this log will be removed after all platforms are fully enabled.
 	TLOGE("%s: The sec info platform is (%d)\n", __func__, dev_info.sec_info.platform);
 
-	assert(dev_info.sec_info.num_seeds > 0 &&
-		dev_info.sec_info.num_seeds <= CSE_SEED_MAX_ENTRIES);
-
 	*num = dev_info.sec_info.num_seeds;
+	secure_memzero(&dev_info, sizeof(trusty_device_info_t));
+
+	assert(*num > 0 && *num <= CSE_SEED_MAX_ENTRIES);
+
 	return HWKEY_NO_ERROR;
 }
 
@@ -438,7 +440,7 @@ static uint8_t get_svn_by_index(uint8_t index)
 	assert(index < CSE_SEED_MAX_ENTRIES);
 
 	/* get device info for svn*/
-	if (NO_ERROR != get_device_info(&dev_info, GET_SEED)) {
+	if (NO_ERROR != get_device_info(&dev_info)) {
 		TLOGE("failed to get device infomation.\n");
 		secure_memzero(&dev_info, sizeof(dev_info));
 		assert(0);
@@ -801,7 +803,7 @@ static uint32_t get_rpmb_ss_auth_key_with_index(uint8_t index,
 	assert(kbuf);
 	assert(klen);
 
-	if (NO_ERROR != get_device_info(&dev_info, GET_SEED)) {
+	if (NO_ERROR != get_device_info(&dev_info)) {
 		TLOGE("failed to get device infomation\n");
 		goto out;
 	}
@@ -840,6 +842,7 @@ out:
 static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 				     uint8_t *kbuf, size_t kbuf_len, size_t *klen)
 {
+	int rc = 0;
 	uint32_t i;
 	trusty_device_info_t dev_info;
 	size_t klen_for_once = 0;
@@ -849,9 +852,11 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 
 	*klen = 0;
 
-	if (NO_ERROR != get_device_info(&dev_info, GET_NONE)) {
+	rc = get_device_info(&dev_info);
+	if (NO_ERROR != rc) {
 		TLOGE("%s:failed to get device infomation\n", __func__);
-		return HWKEY_ERR_GENERIC;
+		rc = HWKEY_ERR_GENERIC;
+		goto clear_dev_info;
 	}
 
 	if (dev_info.sec_info.platform == APL_PLATFORM) {
@@ -859,7 +864,8 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 			if (HWKEY_NO_ERROR != get_rpmb_ss_auth_key_with_index(
 						i, kbuf + i * RPMB_SS_AUTH_KEY_SIZE, kbuf_len, &klen_for_once)) {
 				secure_memzero(kbuf, kbuf_len);
-				return HWKEY_ERR_GENERIC;
+				rc = HWKEY_ERR_GENERIC;
+				goto clear_dev_info;
 			}
 			*klen += klen_for_once;
 		}
@@ -869,7 +875,9 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 		assert(0);
 	}
 
-	return HWKEY_NO_ERROR;
+clear_dev_info:
+	secure_memzero(&dev_info, sizeof(trusty_device_info_t));
+	return rc;
 }
 
 /*
