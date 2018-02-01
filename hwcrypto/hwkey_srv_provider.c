@@ -371,7 +371,7 @@ exit:
 static int get_device_index_huk(uint8_t index, uint8_t *huk, uint32_t huk_len)
 {
 	int rc = 0;
-	trusty_device_info_t dev_info = {0};
+	trusty_device_info_t dev_info;
 
 	if (index >= CSE_SEED_MAX_ENTRIES)
 		return HWKEY_ERR_NOT_VALID;
@@ -411,7 +411,7 @@ clear_sensitive_data:
 static int get_seed_count(uint32_t *num)
 {
 	int rc;
-	trusty_device_info_t dev_info = {0};
+	trusty_device_info_t dev_info;
 
 	/* get device info */
 	rc = get_device_info(&dev_info, GET_NONE);
@@ -432,7 +432,7 @@ static int get_seed_count(uint32_t *num)
 
 static uint8_t get_svn_by_index(uint8_t index)
 {
-	trusty_device_info_t dev_info = {0};
+	trusty_device_info_t dev_info;
 	uint8_t svn;
 
 	assert(index < CSE_SEED_MAX_ENTRIES);
@@ -794,7 +794,7 @@ static uint32_t get_rpmb_ss_auth_key_with_index(uint8_t index,
 				uint8_t *kbuf, size_t kbuf_len, size_t *klen)
 {
 	uint8_t rpmb_key[RPMB_SS_AUTH_KEY_SIZE] = {0};
-	trusty_device_info_t dev_info = {0};
+	trusty_device_info_t dev_info;
 	int ret = HWKEY_ERR_GENERIC;
 	uint8_t serial[MMC_PROD_NAME_WITH_PSN_LEN] = {0};
 
@@ -841,7 +841,7 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 				     uint8_t *kbuf, size_t kbuf_len, size_t *klen)
 {
 	uint32_t i;
-	trusty_device_info_t dev_info = {0};
+	trusty_device_info_t dev_info;
 	size_t klen_for_once = 0;
 
 	assert(kbuf);
