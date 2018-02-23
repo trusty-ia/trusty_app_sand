@@ -30,6 +30,7 @@
 #include <openssl/err.h>
 #include <openssl/hkdf.h>
 #include <openssl/evp.h>
+#include <openssl/mem.h>
 
 #include "common.h"
 #include "hwkey_srv_priv.h"
@@ -849,6 +850,7 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 	uint32_t i;
 	trusty_device_info_t dev_info;
 	size_t klen_for_once = 0;
+	uint8_t invlid_key[64] = {0};
 
 	assert(kbuf);
 	assert(klen);
@@ -862,20 +864,37 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 		goto clear_dev_info;
 	}
 
-	if (dev_info.sec_info.platform == APL_PLATFORM) {
-		for (i = 0; i < dev_info.sec_info.num_seeds; i++) {
-			if (HWKEY_NO_ERROR != get_rpmb_ss_auth_key_with_index(
+	switch (dev_info.sec_info.platform)
+	{
+		case APL_PLATFORM:
+			for (i = 0; i < dev_info.sec_info.num_seeds; i++) {
+				if (HWKEY_NO_ERROR != get_rpmb_ss_auth_key_with_index(
 						i, kbuf + i * RPMB_SS_AUTH_KEY_SIZE, kbuf_len, &klen_for_once)) {
-				secure_memzero(kbuf, kbuf_len);
+					secure_memzero(kbuf, kbuf_len);
+					rc = HWKEY_ERR_GENERIC;
+					goto clear_dev_info;
+				}
+				*klen += klen_for_once;
+			}
+			break;
+
+		case ICL_PLATFORM:
+			if (!CRYPTO_memcmp(dev_info.sec_info.rpmb_key[0], invlid_key, sizeof(invlid_key)))
+			{
+				TLOGE("%s: the RPMB key is unavailable.\n", __func__);
 				rc = HWKEY_ERR_GENERIC;
 				goto clear_dev_info;
 			}
-			*klen += klen_for_once;
-		}
-	} else {
-		//TODO: ICL and CWP rpmb key.
-		TLOGE("%s: platform is not APL!\n", __func__);
-		assert(0);
+
+			memcpy_s(kbuf, RPMB_SS_AUTH_KEY_SIZE, dev_info.sec_info.rpmb_key[0], RPMB_SS_AUTH_KEY_SIZE);
+			*klen = RPMB_SS_AUTH_KEY_SIZE;
+			break;
+
+		default:
+			//TODO: CWP rpmb key.
+			TLOGE("%s: platform(%d) is not handled!\n", __func__, dev_info.sec_info.platform);
+			assert(0);
+			break;
 	}
 
 clear_dev_info:
