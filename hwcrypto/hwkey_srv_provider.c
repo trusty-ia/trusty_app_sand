@@ -427,6 +427,7 @@ static int get_seed_count(uint32_t *num)
 
 	// this log will be removed after all platforms are fully enabled.
 	TLOGE("%s: The sec info platform is (%d)\n", __func__, dev_info.sec_info.platform);
+	fprintf(stderr, "\r\n");
 
 	*num = dev_info.sec_info.num_seeds;
 	secure_memzero(&dev_info, sizeof(trusty_device_info_t));
