@@ -22,7 +22,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <trusty_key_migration.h>
 #include <trusty_std.h>
 #include <interface/hwkey/hwkey.h>
 #include <openssl/cipher.h>
@@ -35,6 +34,7 @@
 #include "common.h"
 #include "hwkey_srv_priv.h"
 #include "hwrng_srv_priv.h"
+#include "trusty_key_migration.h"
 
 #define LOCAL_TRACE  1
 #define LOG_TAG      "hwkey_srv"
