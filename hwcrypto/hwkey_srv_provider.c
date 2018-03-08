@@ -36,6 +36,9 @@
 #include "hwrng_srv_priv.h"
 #include "trusty_key_migration.h"
 
+#include "trusty_device_info.h"
+#include "trusty_syscalls_x86.h"
+
 #define LOCAL_TRACE  1
 #define LOG_TAG      "hwkey_srv"
 
