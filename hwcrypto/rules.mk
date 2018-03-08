@@ -32,6 +32,7 @@ MODULE_DEPS := \
 	interface/hwrng \
 	interface/hwkey \
 	lib/boringssl \
-	lib/hwkey_migration
+	lib/hwkey_migration \
+	lib/trusty_syscall_x86
 
 include make/module.mk
