@@ -717,7 +717,7 @@ out:
 /*
  * Derive key V1 - HMAC SHA256 based Key derivation function
  */
-#ifdef TARGET_PRODUCE_ICL
+#ifdef SIMICS_HARDCODE_KEY
 uint32_t derive_key_v1(const uuid_t *uuid,
 			const uint8_t *ikm_data, size_t ikm_len,
 			uint8_t *key_buf, size_t *key_len)
@@ -897,7 +897,7 @@ static const struct hwkey_keyslot _keys[] = {
 void hwkey_init_srv_provider(void)
 {
 	int rc;
-#ifndef TARGET_PRODUCE_ICL
+#ifndef SIMICS_HARDCODE_KEY
 	uint32_t seed_count, i;
 #endif
 
@@ -921,7 +921,7 @@ void hwkey_init_srv_provider(void)
 		abort();
 	}
 
-#ifndef TARGET_PRODUCE_ICL
+#ifndef SIMICS_HARDCODE_KEY
 	if (get_seed_count(&seed_count))
 		abort();
 
