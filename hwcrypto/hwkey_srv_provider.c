@@ -16,7 +16,7 @@
  */
 
 #include <assert.h>
-#include <err.h>
+#include <uapi/err.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -135,7 +135,7 @@ static bool hkdf_self_test(void)
 
 	res = memcmp(OKM, exp_OKM, sizeof(OKM));
 	if (res) {
-		TLOGE("hkdf: data mismatch\n", __func__);
+		TLOGE("hkdf: %s data mismatch\n", __func__);
 		return false;
 	}
 
@@ -338,7 +338,7 @@ static int aes_256_gcm_decrypt(const struct key *key,
 		goto exit;
 	}
 	cur_len = out_len;
-	tag = cipher + data_len;
+	tag = (uint8_t *)cipher + data_len;
 
 	/*set TAG*/
 	if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, sizeof(struct tag), tag)) {
