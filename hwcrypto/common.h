@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <trusty_std.h>
 
+#ifndef USER_BUILD
 #define TLOGE(fmt, ...) \
     fprintf(stderr, "%s: %d: " fmt, LOG_TAG, __LINE__,  ## __VA_ARGS__)
 
@@ -28,6 +29,10 @@
     fprintf(stderr, "%s: %d: " fmt, LOG_TAG, __LINE__,  ## __VA_ARGS__)
 #else
 #define TLOGI(fmt, ...)
+#endif
+#else
+#define TLOGE(fmt, ...)  do { } while (0)
+#define TLOGI(fmt, ...)  do { } while (0)
 #endif
 
 typedef void (*event_handler_proc_t) (const uevent_t *ev, void *ctx);
