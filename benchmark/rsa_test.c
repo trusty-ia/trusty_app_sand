@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <err.h>
+#include <uapi/err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +17,7 @@
 #define RSA_3 0x3
 #define RSA_F4  0x10001
 
-static int test_mod_exp_mont_consttime()
+static int test_mod_exp_mont_consttime(void)
 {
     int ret = 0;
     int i;
@@ -68,7 +68,7 @@ static int test_mod_exp_mont_consttime()
     return 0;
 }
 
-static int test_large_key()
+static int test_large_key(void)
 {
     int ret = 0;
     BIGNUM e_f0;
