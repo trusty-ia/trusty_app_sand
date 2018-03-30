@@ -21,7 +21,7 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 #include <assert.h>
-#include <err.h>
+#include <uapi/err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -33,12 +33,12 @@ const size_t BUFSIZE = (1024*4);
 const uint ITER = 1024;
 static int g_count = 0;
 
-static void bench_asm()
+static void bench_asm(void)
 {
     uint64_t count = rdtsc_start();
 
     for(uint i = 0; i < ITER*ITER; i++) {
-        asm volatile(
+        __asm__ volatile(
             "pushq %%rax;"
             "pushq %%rcx;"
             "xor %%rcx, %%rax;"
@@ -57,7 +57,7 @@ static void bench_set_overhead(void)
 {
     uint32_t *buf = malloc(BUFSIZE);
     if (!buf) {
-        TLOGI("alloc buf with size %d has failed\n", BUFSIZE);
+        TLOGI("alloc buf with size %zd has failed\n", BUFSIZE);
         return;
     }
 
@@ -76,7 +76,7 @@ static void bench_memset(void)
 {
     void *buf = malloc(BUFSIZE);
     if (!buf) {
-        TLOGI("alloc buf with size %d has failed\n", BUFSIZE);
+        TLOGI("alloc buf with size %zd has failed\n", BUFSIZE);
         return;
     }
 
@@ -99,7 +99,7 @@ static void bench_malloc(void)
     for (uint i = 0; i < ITER; i++) {
         buf = malloc(BUFSIZE+1024*i);
         if (!buf) {
-            TLOGI("alloc buf with size %d has failed\n", BUFSIZE+1024*i);
+            TLOGI("alloc buf with size %zd has failed\n", BUFSIZE+1024*i);
             break;
         }
         memset(buf, 0, BUFSIZE);
@@ -117,7 +117,7 @@ static void bench_cset_##type(void) \
 { \
     type *buf = malloc(BUFSIZE); \
     if (!buf) { \
-        TLOGI("alloc buf with size %d has failed\n", BUFSIZE); \
+        TLOGI("alloc buf with size %zd has failed\n", BUFSIZE); \
         return; \
     } \
 \
@@ -143,7 +143,7 @@ static void bench_cset_wide(void)
 {
     uint32_t *buf = malloc(BUFSIZE);
     if (!buf) {
-        TLOGI("alloc buf with size %d has failed\n", BUFSIZE);
+        TLOGI("alloc buf with size %zd has failed\n", BUFSIZE);
         return;
     }
 
@@ -171,7 +171,7 @@ static void bench_memcpy(void)
 {
     uint8_t *buf = malloc(BUFSIZE);
     if (!buf) {
-        TLOGI("alloc buf with size %d has failed\n", BUFSIZE);
+        TLOGI("alloc buf with size %zd has failed\n", BUFSIZE);
         return;
     }
 
@@ -191,7 +191,7 @@ static void arm_bench_cset_stm(void)
 {
     uint32_t *buf = malloc(BUFSIZE);
     if (!buf) {
-        TLOGI("alloc buf with size %d has failed\n", BUFSIZE);
+        TLOGI("alloc buf with size %zd has failed\n", BUFSIZE);
         return;
     }
 

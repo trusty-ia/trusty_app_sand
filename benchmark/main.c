@@ -16,7 +16,7 @@
 
 
 #include <assert.h>
-#include <err.h>
+#include <uapi/err.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <app/tests.h>
@@ -31,7 +31,7 @@
 uint64_t rdtsc_start(void)
 {
     unsigned int low, high;
-    asm volatile(
+    __asm__ volatile(
         "cpuid;"
         "rdtsc;"
         "mov %%edx, %0;"
@@ -44,7 +44,7 @@ uint64_t rdtsc_start(void)
 uint64_t rdtsc_end(void)
 {
     unsigned int low, high;
-    asm volatile(
+    __asm__ volatile(
         "rdtscp;"
         "mov %%edx, %0;"
         "mov %%eax, %1;"
