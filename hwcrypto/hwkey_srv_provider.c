@@ -891,6 +891,11 @@ static uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 			*klen = RPMB_SS_AUTH_KEY_SIZE;
 			break;
 
+		case DUMMY_PLATFORM:
+			memcpy_s(kbuf, RPMB_SS_AUTH_KEY_SIZE, "12345ABCDEF1234512345ABCDEF12345", RPMB_SS_AUTH_KEY_SIZE);
+			*klen = RPMB_SS_AUTH_KEY_SIZE;
+			break;
+
 		default:
 			//TODO: CWP rpmb key.
 			TLOGE("%s: platform(%d) is not handled!\n", __func__, dev_info.sec_info.platform);
