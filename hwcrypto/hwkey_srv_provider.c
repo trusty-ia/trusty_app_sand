@@ -43,7 +43,9 @@
 #define LOCAL_TRACE  1
 #define LOG_TAG      "hwkey_srv"
 
-static struct crypto_context g_crypto_ctx = {0};
+#define CRYPTO_CTX_INITIAL_VALUE(crypto_ctx) {0, {0}, {0}, {0}, {0}, 0, {0}}
+
+static struct crypto_context g_crypto_ctx = CRYPTO_CTX_INITIAL_VALUE(g_crypto_ctx);
 
 struct key {
 	uint8_t byte[32];
@@ -552,7 +554,7 @@ uint32_t generate_crypto_context(uint8_t *data, size_t *data_len)
 {
 	struct key ssek, trk;
 	int rc = -1;
-	struct crypto_context crypto_ctx = {0};
+	struct crypto_context crypto_ctx = CRYPTO_CTX_INITIAL_VALUE(crypto_ctx);
 
 	assert(data && data_len);
 
@@ -597,8 +599,8 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 	size_t out_size;
 	int rc = -1;
 	uint8_t aes_gcm_key[32] = {0};
-	struct crypto_context updated_crypto_ctx = {0};
-	struct crypto_context crypto_ctx = {0};
+	struct crypto_context updated_crypto_ctx = CRYPTO_CTX_INITIAL_VALUE(updated_crypto_ctx);
+	struct crypto_context crypto_ctx = CRYPTO_CTX_INITIAL_VALUE(crypto_ctx);
 	uint8_t svn;
 
 	assert(dst && dst_len && src && (src_len == sizeof(struct crypto_context)));
