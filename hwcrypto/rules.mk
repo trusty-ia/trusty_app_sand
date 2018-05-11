@@ -24,7 +24,12 @@ MODULE_SRCS := \
 	$(LOCAL_DIR)/hwrng_srv.c \
 	$(LOCAL_DIR)/hwkey_srv.c \
 	$(LOCAL_DIR)/hwrng_srv_provider.c \
-	$(LOCAL_DIR)/hwkey_srv_provider.c
+	$(LOCAL_DIR)/hwkey_srv_provider.c \
+	$(LOCAL_DIR)/platform/provider_$(TRUSTY_REF_TARGET).c
+
+
+MODULE_INCLUDES := \
+    $(LOCAL_DIR)
 
 MODULE_DEPS := \
 	app/trusty \
