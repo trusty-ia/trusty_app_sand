@@ -41,7 +41,7 @@
 #include "trusty_syscalls_x86.h"
 
 #define LOCAL_TRACE  1
-#define LOG_TAG      "hwkey_srv"
+#define LOG_TAG      "hwkey_srv_provider"
 
 #define CRYPTO_CTX_INITIAL_VALUE(crypto_ctx) {0, {0}, {0}, {0}, {0}, 0, {0}}
 
