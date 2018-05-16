@@ -41,7 +41,7 @@
 #include "trusty_syscalls_x86.h"
 
 #define LOCAL_TRACE  1
-#define LOG_TAG      "hwkey_srv_icl"
+#define LOG_TAG      "provider_fixed_seed"
 
 extern struct crypto_context g_crypto_ctx;
 extern const struct aad trk_aad;
@@ -113,7 +113,7 @@ uint32_t derive_key_v1(const uuid_t *uuid,
 				(const void *)g_crypto_ctx.trk_cipher, sizeof(g_crypto_ctx.trk_cipher),
 				&trk, &out_size);
 	if (rc || out_size != sizeof(trk)) {
-		TLOGE("aes_256_gcm_decrypt failed to decrypt ssek, rc is %d. out_size is %zu.\n", rc, out_size);
+		TLOGE("aes_256_gcm_decrypt failed to decrypt rot key, rc is %d. out_size is %zu.\n", rc, out_size);
 		*key_len = 0;
 		secure_memzero(key_buf, ikm_len);
 		goto out;
