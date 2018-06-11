@@ -146,7 +146,6 @@ uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 				     uint8_t *kbuf, size_t kbuf_len, size_t *klen)
 {
 	int rc = 0;
-	uint32_t i;
 	trusty_device_info_t dev_info;
 	uint8_t invalid_key[64] = {0};
 
