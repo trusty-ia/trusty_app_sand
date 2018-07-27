@@ -31,7 +31,6 @@
 
 const size_t BUFSIZE = (1024*4);
 const uint ITER = 1024;
-static int g_count = 0;
 
 static void bench_asm(void)
 {
