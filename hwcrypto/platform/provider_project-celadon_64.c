@@ -1,1 +1,1 @@
-solutions/provider_dummy.c
+solutions/provider_fixed_seed.c
