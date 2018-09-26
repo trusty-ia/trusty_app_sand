@@ -36,6 +36,7 @@
 #include "hwkey_srv_priv.h"
 #include "hwrng_srv_priv.h"
 #include "trusty_key_migration.h"
+#include "trusty_key_crypt.h"
 
 #include "trusty_device_info.h"
 #include "trusty_syscalls_x86.h"
@@ -44,9 +45,9 @@
 #define LOG_TAG      "provider_dummy"
 
 extern struct crypto_context g_crypto_ctx;
-extern const struct aad trk_aad;
+extern const struct gcm_aad trk_aad;
 extern const uuid_t crypto_uuid;
-extern const struct aad ssek_aad;
+extern const struct gcm_aad ssek_aad;
 
 uint32_t get_ssek(uint8_t *ssek, size_t *ssek_len)
 {
@@ -63,14 +64,14 @@ uint32_t get_ssek(uint8_t *ssek, size_t *ssek_len)
 		goto out;
 	}
 
-	rc = aes_256_gcm_decrypt((const struct key *)aes_gcm_key,
-				(const struct iv *)g_crypto_ctx.ssek_iv, &ssek_aad,
+	rc = aes_256_gcm_decrypt((const struct gcm_key *)aes_gcm_key,
+				(const struct gcm_iv *)g_crypto_ctx.ssek_iv, &ssek_aad,
 				(const void *)g_crypto_ctx.ssek_cipher, sizeof(g_crypto_ctx.ssek_cipher),
 				ssek, ssek_len);
-	if (rc || *ssek_len != sizeof(struct key)) {
+	if (rc || *ssek_len != sizeof(struct gcm_key)) {
 		TLOGE("get_ssek failed to decrypt ssek, rc is %d. *ssek_len is %zu.\n", rc, *ssek_len);
 		*ssek_len = 0;
-		secure_memzero(ssek, sizeof(struct key));
+		secure_memzero(ssek, sizeof(struct gcm_key));
 		goto out;
 	}
 
@@ -89,7 +90,7 @@ uint32_t derive_key_v1(const uuid_t *uuid,
 			uint8_t *key_buf, size_t *key_len)
 {
 
-	struct key trk;
+	struct gcm_key trk;
 	size_t out_size = 0;
 	uint8_t aes_gcm_key[32] = {0};
 	int rc = -1;
@@ -108,8 +109,8 @@ uint32_t derive_key_v1(const uuid_t *uuid,
 		goto out;
 	}
 
-	rc = aes_256_gcm_decrypt((const struct key *)aes_gcm_key,
-				(const struct iv *)g_crypto_ctx.trk_iv, &trk_aad,
+	rc = aes_256_gcm_decrypt((const struct gcm_key *)aes_gcm_key,
+				(const struct gcm_iv *)g_crypto_ctx.trk_iv, &trk_aad,
 				(const void *)g_crypto_ctx.trk_cipher, sizeof(g_crypto_ctx.trk_cipher),
 				&trk, &out_size);
 	if (rc || out_size != sizeof(trk)) {

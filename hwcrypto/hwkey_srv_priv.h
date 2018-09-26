@@ -29,26 +29,6 @@ struct hwkey_keyslot {
 
 __BEGIN_CDECLS
 
-struct key {
-	uint8_t byte[32];
-};
-
-struct iv {
-	uint8_t byte[12];
-};
-
-struct aad {
-	uint8_t byte[16];
-};
-
-struct tag {
-	uint8_t byte[16];
-};
-
-#define AES_GCM_NO_ERROR           0
-#define AES_GCM_ERR_GENERIC        -1
-#define AES_GCM_ERR_AUTH_FAILED    -2
-
 /* RPMB Key support */
 #define RPMB_SS_AUTH_KEY_SIZE    32
 #define RPMB_SS_AUTH_KEY_ID      "com.android.trusty.storage_auth.rpmb"
@@ -63,17 +43,6 @@ uint32_t generate_crypto_context(uint8_t *data, size_t *data_len);
 
 uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 		uint8_t *dst, size_t *dst_len);
-
-
-int aes_256_gcm_encrypt(const struct key *key,
-		const struct iv *iv, const struct aad *aad,
-		const void *plain, size_t plain_size,
-		void *out, size_t *out_size);
-
-int aes_256_gcm_decrypt(const struct key *key,
-		const struct iv *iv, const struct aad *aad,
-		const void *cipher, size_t cipher_size,
-		void *out, size_t *out_size);
 
 uint32_t get_aes_gcm_key(uint8_t index, uint8_t *aes_gcm_key, size_t key_len);
 
