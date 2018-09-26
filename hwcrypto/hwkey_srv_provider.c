@@ -25,17 +25,15 @@
 #include <trusty_std.h>
 #include <interface/hwkey/hwkey.h>
 #include <openssl/cipher.h>
-#include <openssl/aes.h>
-#include <openssl/digest.h>
 #include <openssl/err.h>
 #include <openssl/hkdf.h>
 #include <openssl/evp.h>
-#include <openssl/mem.h>
 
 #include "common.h"
 #include "hwkey_srv_priv.h"
 #include "hwrng_srv_priv.h"
 #include "trusty_key_migration.h"
+#include "trusty_key_crypt.h"
 
 #include "trusty_device_info.h"
 #include "trusty_syscalls_x86.h"
@@ -47,14 +45,14 @@
 
 struct crypto_context g_crypto_ctx = CRYPTO_CTX_INITIAL_VALUE(g_crypto_ctx);
 
-const struct aad trk_aad = {
+const struct gcm_aad trk_aad = {
 	.byte = {
 		0xf3, 0x56, 0x5b, 0xd9, 0xc4, 0xe7, 0xd4, 0x1e,
 		0xbb, 0xb4, 0x14, 0x15, 0x20, 0xe7, 0x09, 0xcf,
 	}
 };
 
-const struct aad ssek_aad = {
+const struct gcm_aad ssek_aad = {
 	.byte = {
 		0x8d, 0x46, 0x2b, 0xd1, 0xb3, 0xde, 0x0f, 0x5c,
 		0xc1, 0x6d, 0x56, 0xcc, 0x2e, 0x53, 0x05, 0x54,
@@ -128,220 +126,6 @@ static bool hwkey_self_test(void)
 	return true;
 }
 #endif
-
-/**
- * aes_256_gcm_encrypt - Helper function for encrypt.
- * @key:          Key object.
- * @iv:           Initialization vector to use for Cipher Block Chaining.
- * @aad:          AAD to use for infomation.
- * @plain:        Data to encrypt, it is only plaintext.
- * @plain_size:   Number of bytes in @plain.
- * @out:          Data out, it contains ciphertext and tag.
- * @out_size:     Number of bytes out @out.
- *
- * Return: 0 on success, < 0 if an error was detected.
- */
-int aes_256_gcm_encrypt(const struct key *key,
-			const struct iv *iv, const struct aad *aad,
-			const void *plain, size_t plain_size,
-			void *out, size_t *out_size)
-{
-	int rc = AES_GCM_ERR_GENERIC;
-	EVP_CIPHER_CTX *ctx;
-	int out_len, cur_len, data_len;
-	uint8_t out_buf[32] = {0};
-	uint8_t gcm_data[48] = {0};
-	uint8_t *tag;
-
-	if ((key ==  NULL) ||  (iv ==  NULL) || (plain ==  NULL) ||
-		(plain_size > 32) ||  (out ==  NULL) || (out_size ==  NULL)) {
-		TLOGE("invalid args!\n");
-		return AES_GCM_ERR_GENERIC;
-	}
-
-	/*creat cipher ctx*/
-	ctx = EVP_CIPHER_CTX_new();
-	if (ctx == NULL) {
-		TLOGE("fail to create CTX....\n");
-		goto exit;
-	}
-
-	/* Set cipher, key and iv */
-	if (!EVP_EncryptInit_ex(ctx, EVP_aes_256_gcm(), NULL,
-					(unsigned char *)key, (unsigned char *)iv)) {
-		TLOGE("CipherInit fail\n");
-		goto exit;
-	}
-
-	/* set iv length.*/
-	if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof(struct iv), NULL)) {
-		TLOGE("set iv length fail\n");
-		goto exit;
-	}
-
-	/* set to aad info.*/
-	if (NULL != aad) {
-		if (!EVP_EncryptUpdate(ctx, NULL, &out_len, (uint8_t *)aad, sizeof(struct aad))) {
-			TLOGE("set aad info fail\n");
-			goto exit;
-		}
-	}
-
-	/* Encrypt plaintext */
-	data_len = plain_size;
-	if (!EVP_EncryptUpdate(ctx, out_buf, &out_len, plain, data_len)) {
-		TLOGE("Encrypt plain text fail.\n");
-		goto exit;
-	}
-
-	if (memcpy_s(gcm_data, sizeof(gcm_data), out_buf, out_len)) {
-		TLOGE("fail to copy encrypt data.\n");
-		goto exit;
-	}
-
-	cur_len = out_len;
-	tag = gcm_data + cur_len;
-	/* get no output for GCM */
-	if (!EVP_EncryptFinal_ex(ctx, out_buf, &out_len)) {
-		TLOGE("EncryptFinal fail.\n");
-		goto exit;
-	}
-
-	/*get TAG*/
-	if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, sizeof(struct tag), out_buf)) {
-		TLOGE("get TAG fail.\n");
-		rc = AES_GCM_ERR_AUTH_FAILED;
-		goto exit;
-	}
-
-	if (memcpy_s(tag, sizeof(gcm_data) - cur_len, out_buf, sizeof(struct tag))) {
-		TLOGE("fail to copy encrypt tag.\n");
-		goto exit;
-	}
-	cur_len += sizeof(struct tag);
-
-	/*set data of out*/
-	if (memcpy_s(out, cur_len, gcm_data, cur_len)) {
-		TLOGE("fail to copy out data.\n");
-		goto exit;
-	}
-	*out_size = cur_len;
-
-	rc = AES_GCM_NO_ERROR;
-
-exit:
-	if (ctx)
-		EVP_CIPHER_CTX_free(ctx);
-
-	secure_memzero(&gcm_data, sizeof(gcm_data));
-	secure_memzero(&out_buf, sizeof(out_buf));
-
-	return rc;
-}
-
-/**
- * aes_256_gcm_decrypt - Helper function for decrypt.
- * @key:          Key object.
- * @iv:           Initialization vector to use for Cipher Block Chaining.
- * @aad:          AAD to use for infomation.
- * @cipher:       Data in to decrypt, it contains ciphertext and tag.
- * @cipher_size:  Number of bytes in @cipher.
- * @out:          Data out, it is only plaintext.
- * @out_size:     Number of bytes out @out.
- *
- * Return: 0 on success, < 0 if an error was detected.
- */
-int aes_256_gcm_decrypt(const struct key *key,
-			const struct iv *iv, const struct aad *aad,
-			const void *cipher, size_t cipher_size,
-			void *out, size_t *out_size)
-{
-	int rc = AES_GCM_ERR_GENERIC;
-	EVP_CIPHER_CTX *ctx;
-	int out_len, cur_len, data_len;
-	uint8_t out_buf[32] = {0};
-	uint8_t gcm_data[32] = {0};
-	uint8_t *tag;
-
-	if ((key ==  NULL) ||  (iv ==  NULL) || (cipher ==  NULL) ||
-		(cipher_size < 48) ||  (out ==  NULL) || (out_size ==  NULL)) {
-		TLOGE("invalid args!\n");
-		return AES_GCM_ERR_GENERIC;
-	}
-
-	/*creat cipher ctx*/
-	ctx = EVP_CIPHER_CTX_new();
-	if (ctx == NULL) {
-		TLOGE("fail to create CTX....\n");
-		goto exit;
-	}
-
-	/* Set cipher, key and iv */
-	if (!EVP_DecryptInit_ex(ctx, EVP_aes_256_gcm(), NULL,
-					(unsigned char *)key, (unsigned char *)iv)) {
-		TLOGE("CipherInit fail\n");
-		goto exit;
-	}
-
-	/* set iv length.*/
-	if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, sizeof(struct iv), NULL)) {
-		TLOGE("set iv length fail\n");
-		goto exit;
-	}
-
-	/* set to aad info.*/
-	if (NULL != aad) {
-		if (!EVP_EncryptUpdate(ctx, NULL, &out_len, (uint8_t *)aad, sizeof(struct aad))) {
-			TLOGE("set aad info fail\n");
-			goto exit;
-		}
-	}
-
-	/* Decrypt plaintext */
-	data_len = cipher_size - sizeof(struct tag);
-	if (!EVP_DecryptUpdate(ctx, out_buf, &out_len, cipher, data_len)) {
-		TLOGE("Decrypt cipher text fail.\n");
-		goto exit;
-	}
-
-	if (memcpy_s(gcm_data, sizeof(gcm_data), out_buf, out_len)) {
-		TLOGE("fail to copy decrypt data.\n");
-		goto exit;
-	}
-	cur_len = out_len;
-	tag = (uint8_t *)cipher + data_len;
-
-	/*set TAG*/
-	if (!EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, sizeof(struct tag), tag)) {
-		TLOGE("set TAG fail.\n");
-		goto exit;
-	}
-
-	/* Check TAG */
-	if (!EVP_DecryptFinal_ex(ctx, out_buf, &out_len)) {
-		TLOGE("fail to check TAG.\n");
-		rc = AES_GCM_ERR_AUTH_FAILED;
-		goto exit;
-	}
-
-	/*set data of out*/
-	if (memcpy_s(out, cur_len, gcm_data, cur_len)) {
-		TLOGE("fail to copy out data.\n");
-		goto exit;
-	}
-	*out_size = cur_len;
-
-	rc = AES_GCM_NO_ERROR;
-
-exit:
-	if (ctx)
-		EVP_CIPHER_CTX_free(ctx);
-
-	secure_memzero(&gcm_data, sizeof(gcm_data));
-	secure_memzero(&out_buf, sizeof(out_buf));
-
-	return rc;
-}
 
 static int get_device_seed_by_index(uint8_t index, uint8_t *seed, uint32_t seed_len)
 {
@@ -461,7 +245,7 @@ out:
 /* wrap_crypto_context with seed 0 and random iv.
  * save g_crypto_ctx to trusty memory.
  */
-static uint32_t wrap_crypto_context(const struct key ssek, const struct key trk,
+static uint32_t wrap_crypto_context(const struct gcm_key ssek, const struct gcm_key trk,
 					struct crypto_context *crypto_ctx)
 {
 	int rc = -1;
@@ -486,8 +270,8 @@ static uint32_t wrap_crypto_context(const struct key ssek, const struct key trk,
 		goto out;
 	}
 
-	rc = aes_256_gcm_encrypt((const struct key *)aes_gcm_key,
-				(const struct iv *)crypto_ctx->ssek_iv, &ssek_aad,
+	rc = aes_256_gcm_encrypt((const struct gcm_key *)aes_gcm_key,
+				(const struct gcm_iv *)crypto_ctx->ssek_iv, &ssek_aad,
 				(const void *)&ssek, sizeof(ssek),
 				crypto_ctx->ssek_cipher, &out_size);
 	if (AES_GCM_NO_ERROR != rc || out_size != sizeof(crypto_ctx->ssek_cipher)) {
@@ -495,8 +279,8 @@ static uint32_t wrap_crypto_context(const struct key ssek, const struct key trk,
 		goto out;
 	}
 
-	rc = aes_256_gcm_encrypt((const struct key *)aes_gcm_key,
-				(const struct iv *)crypto_ctx->trk_iv, &trk_aad,
+	rc = aes_256_gcm_encrypt((const struct gcm_key *)aes_gcm_key,
+				(const struct gcm_iv *)crypto_ctx->trk_iv, &trk_aad,
 				(const void *)&trk, sizeof(trk),
 				crypto_ctx->trk_cipher, &out_size);
 	if (AES_GCM_NO_ERROR != rc || out_size != sizeof(crypto_ctx->trk_cipher)) {
@@ -521,7 +305,7 @@ out:
 
 uint32_t generate_crypto_context(uint8_t *data, size_t *data_len)
 {
-	struct key ssek, trk;
+	struct gcm_key ssek, trk;
 	int rc = -1;
 	struct crypto_context crypto_ctx = CRYPTO_CTX_INITIAL_VALUE(crypto_ctx);
 
@@ -564,7 +348,7 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 {
 	uint32_t seed_count, i;
 	uint32_t index = -1;
-	struct key ssek, trk;
+	struct gcm_key ssek, trk;
 	size_t out_size;
 	int rc = -1;
 	uint8_t aes_gcm_key[32] = {0};
@@ -621,8 +405,8 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 		goto out;
 	}
 
-	rc = aes_256_gcm_decrypt((const struct key *) aes_gcm_key,
-				(const struct iv *) crypto_ctx.ssek_iv, &ssek_aad,
+	rc = aes_256_gcm_decrypt((const struct gcm_key *) aes_gcm_key,
+				(const struct gcm_iv *) crypto_ctx.ssek_iv, &ssek_aad,
 				(const void *) crypto_ctx.ssek_cipher, sizeof(crypto_ctx.ssek_cipher),
 				&ssek, &out_size);
 	if (rc != AES_GCM_NO_ERROR || out_size != sizeof(ssek)) {
@@ -630,8 +414,8 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 		goto out;
 	}
 
-	rc = aes_256_gcm_decrypt((const struct key *) aes_gcm_key,
-					(const struct iv *) crypto_ctx.trk_iv, &trk_aad,
+	rc = aes_256_gcm_decrypt((const struct gcm_key *) aes_gcm_key,
+					(const struct gcm_iv *) crypto_ctx.trk_iv, &trk_aad,
 					(const void *) crypto_ctx.trk_cipher, sizeof(crypto_ctx.trk_cipher),
 					&trk, &out_size);
 	if (rc != AES_GCM_NO_ERROR || out_size != sizeof(trk)) {

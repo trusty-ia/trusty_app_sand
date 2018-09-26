@@ -19,6 +19,7 @@
 #include "hwkey_srv_priv.h"
 #include "hwrng_srv_priv.h"
 #include "trusty_key_migration.h"
+#include "trusty_key_crypt.h"
 
 #include "trusty_device_info.h"
 #include "trusty_syscalls_x86.h"
@@ -27,9 +28,9 @@
 #define LOG_TAG      "hwkey_srv_kgf"
 
 extern struct crypto_context g_crypto_ctx;
-extern const struct aad trk_aad;
+extern const struct gcm_aad trk_aad;
 extern const uuid_t crypto_uuid;
-extern const struct aad ssek_aad;
+extern const struct gcm_aad ssek_aad;
 
 uint32_t get_ssek(uint8_t *ssek, size_t *ssek_len)
 {

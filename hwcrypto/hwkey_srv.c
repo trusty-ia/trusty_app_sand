@@ -28,6 +28,7 @@
 #include "common.h"
 #include "hwkey_srv_priv.h"
 #include "trusty_key_migration.h"
+#include "trusty_key_crypt.h"
 
 #define LOCAL_TRACE  1
 #define LOG_TAG      "hwkey_srv"
