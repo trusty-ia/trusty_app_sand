@@ -45,9 +45,9 @@
 #define LOG_TAG      "provider_dummy"
 
 extern struct crypto_context g_crypto_ctx;
-extern const struct gcm_aad trk_aad;
+extern const uint8_t trk_aad[16];
 extern const uuid_t crypto_uuid;
-extern const struct gcm_aad ssek_aad;
+extern const uint8_t ssek_aad[16];
 
 uint32_t get_ssek(uint8_t *ssek, size_t *ssek_len)
 {
@@ -65,7 +65,8 @@ uint32_t get_ssek(uint8_t *ssek, size_t *ssek_len)
 	}
 
 	rc = aes_256_gcm_decrypt((const struct gcm_key *)aes_gcm_key,
-				(const struct gcm_iv *)g_crypto_ctx.ssek_iv, &ssek_aad,
+				(const void *)g_crypto_ctx.ssek_iv, sizeof(g_crypto_ctx.ssek_iv),
+				(const void *)ssek_aad, sizeof(ssek_aad),
 				(const void *)g_crypto_ctx.ssek_cipher, sizeof(g_crypto_ctx.ssek_cipher),
 				ssek, ssek_len);
 	if (rc || *ssek_len != sizeof(struct gcm_key)) {
@@ -110,7 +111,8 @@ uint32_t derive_key_v1(const uuid_t *uuid,
 	}
 
 	rc = aes_256_gcm_decrypt((const struct gcm_key *)aes_gcm_key,
-				(const struct gcm_iv *)g_crypto_ctx.trk_iv, &trk_aad,
+				(const void *)g_crypto_ctx.trk_iv, sizeof(g_crypto_ctx.trk_iv),
+				(const void *)trk_aad, sizeof(trk_aad),
 				(const void *)g_crypto_ctx.trk_cipher, sizeof(g_crypto_ctx.trk_cipher),
 				&trk, &out_size);
 	if (rc || out_size != sizeof(trk)) {

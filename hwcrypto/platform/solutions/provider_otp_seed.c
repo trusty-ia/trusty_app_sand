@@ -28,9 +28,9 @@
 #define LOG_TAG      "hwkey_srv_kgf"
 
 extern struct crypto_context g_crypto_ctx;
-extern const struct gcm_aad trk_aad;
+extern const uint8_t trk_aad[16];
 extern const uuid_t crypto_uuid;
-extern const struct gcm_aad ssek_aad;
+extern const uint8_t ssek_aad[16];
 
 uint32_t get_ssek(uint8_t *ssek, size_t *ssek_len)
 {
