@@ -45,18 +45,14 @@
 
 struct crypto_context g_crypto_ctx = CRYPTO_CTX_INITIAL_VALUE(g_crypto_ctx);
 
-const struct gcm_aad trk_aad = {
-	.byte = {
+const uint8_t trk_aad[16] = {
 		0xf3, 0x56, 0x5b, 0xd9, 0xc4, 0xe7, 0xd4, 0x1e,
 		0xbb, 0xb4, 0x14, 0x15, 0x20, 0xe7, 0x09, 0xcf,
-	}
 };
 
-const struct gcm_aad ssek_aad = {
-	.byte = {
+const uint8_t ssek_aad[16] = {
 		0x8d, 0x46, 0x2b, 0xd1, 0xb3, 0xde, 0x0f, 0x5c,
 		0xc1, 0x6d, 0x56, 0xcc, 0x2e, 0x53, 0x05, 0x54,
-	}
 };
 /* Secure storage service app uuid */
 const uuid_t ss_uuid = SECURE_STORAGE_SERVER_APP_UUID;
@@ -271,7 +267,8 @@ static uint32_t wrap_crypto_context(const struct gcm_key ssek, const struct gcm_
 	}
 
 	rc = aes_256_gcm_encrypt((const struct gcm_key *)aes_gcm_key,
-				(const struct gcm_iv *)crypto_ctx->ssek_iv, &ssek_aad,
+				(const void *)crypto_ctx->ssek_iv, sizeof(crypto_ctx->ssek_iv),
+				(const void *)ssek_aad, sizeof(ssek_aad),
 				(const void *)&ssek, sizeof(ssek),
 				crypto_ctx->ssek_cipher, &out_size);
 	if (AES_GCM_NO_ERROR != rc || out_size != sizeof(crypto_ctx->ssek_cipher)) {
@@ -280,7 +277,8 @@ static uint32_t wrap_crypto_context(const struct gcm_key ssek, const struct gcm_
 	}
 
 	rc = aes_256_gcm_encrypt((const struct gcm_key *)aes_gcm_key,
-				(const struct gcm_iv *)crypto_ctx->trk_iv, &trk_aad,
+				(const void *)crypto_ctx->trk_iv, sizeof(crypto_ctx->trk_iv),
+				(const void *)trk_aad, sizeof(trk_aad),
 				(const void *)&trk, sizeof(trk),
 				crypto_ctx->trk_cipher, &out_size);
 	if (AES_GCM_NO_ERROR != rc || out_size != sizeof(crypto_ctx->trk_cipher)) {
@@ -405,8 +403,9 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 	}
 
 	rc = aes_256_gcm_decrypt((const struct gcm_key *) aes_gcm_key,
-				(const struct gcm_iv *) crypto_ctx.ssek_iv, &ssek_aad,
-				(const void *) crypto_ctx.ssek_cipher, sizeof(crypto_ctx.ssek_cipher),
+				(const void *)crypto_ctx.ssek_iv, sizeof(crypto_ctx.ssek_iv),
+				(const void *)ssek_aad, sizeof(ssek_aad),
+				(const void *)crypto_ctx.ssek_cipher, sizeof(crypto_ctx.ssek_cipher),
 				&ssek, &out_size);
 	if (rc != AES_GCM_NO_ERROR || out_size != sizeof(ssek)) {
 		TLOGE("failed to decrypt ssek rc is %d, out_size is %zu.\n", rc, out_size);
@@ -414,9 +413,10 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 	}
 
 	rc = aes_256_gcm_decrypt((const struct gcm_key *) aes_gcm_key,
-					(const struct gcm_iv *) crypto_ctx.trk_iv, &trk_aad,
-					(const void *) crypto_ctx.trk_cipher, sizeof(crypto_ctx.trk_cipher),
-					&trk, &out_size);
+				(const void *)crypto_ctx.trk_iv, sizeof(crypto_ctx.trk_iv),
+				(const void *)trk_aad, sizeof(trk_aad),
+				(const void *)crypto_ctx.trk_cipher, sizeof(crypto_ctx.trk_cipher),
+				&trk, &out_size);
 	if (rc != AES_GCM_NO_ERROR || out_size != sizeof(trk)) {
 		TLOGE("failed to decrypt trk rc is %d, out_size is %zu.\n", rc, out_size);
 		goto out;
