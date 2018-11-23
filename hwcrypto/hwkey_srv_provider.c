@@ -181,7 +181,7 @@ static int get_seed_count(uint32_t *num)
 	}
 
 	// this log will be removed after all platforms are fully enabled.
-	TLOGE("%s: The sec info platform is (%d)\n", __func__, dev_info.sec_info.platform);
+	TLOGE("The sec info platform is (%d)\n", dev_info.sec_info.platform);
 	fprintf(stderr, "\r\n");
 
 	*num = dev_info.sec_info.num_seeds;
@@ -362,7 +362,6 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 	// get crypto_context from SS
 	svn = get_svn_by_index(0);
 	if (crypto_ctx.svn == svn) {
-		TLOGE("seed is not changed, copy src to dst.\n");
 		memcpy_s(&g_crypto_ctx, sizeof(struct crypto_context), &crypto_ctx, sizeof(struct crypto_context));
 
 		//use IN crypto_context as OUT;
@@ -378,7 +377,7 @@ uint32_t exchange_crypto_context(const uint8_t *src, size_t src_len,
 		goto out;
 	}
 
-	TLOGI("Seed Changed!!!\n");
+	TLOGE("Seed Changed!!!\n");
 	*dst_len = 0;
 
 	if (get_seed_count(&seed_count))
