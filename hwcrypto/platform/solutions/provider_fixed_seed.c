@@ -148,9 +148,7 @@ uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 {
 	int rc = 0;
 	trusty_device_info_t dev_info;
-#if 0
 	uint8_t invalid_key[64] = {0};
-#endif
 
 	assert(kbuf);
 	assert(klen);
@@ -164,14 +162,12 @@ uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 		goto clear_dev_info;
 	}
 
-#if 0
 	if (!CRYPTO_memcmp(dev_info.sec_info.rpmb_key[0], invalid_key, sizeof(invalid_key)))
 	{
 			TLOGE("%s: the RPMB key is unavailable.\n", __func__);
 			rc = HWKEY_ERR_GENERIC;
 			goto clear_dev_info;
 	}
-#endif
 
 	memcpy_s(kbuf, RPMB_SS_AUTH_KEY_SIZE, dev_info.sec_info.rpmb_key[0], RPMB_SS_AUTH_KEY_SIZE);
 	*klen = RPMB_SS_AUTH_KEY_SIZE;
