@@ -150,7 +150,7 @@ uint32_t get_rpmb_ss_auth_key(const struct hwkey_keyslot *slot,
 {
 	assert(kbuf && klen);
 
-	memcpy_s(kbuf, RPMB_SS_AUTH_KEY_SIZE, "12345ABCDEF1234512345ABCDEF12345", RPMB_SS_AUTH_KEY_SIZE);
+	memcpy_s(kbuf, RPMB_SS_AUTH_KEY_SIZE, "11111111111111111111111111111111", RPMB_SS_AUTH_KEY_SIZE);
 	*klen = RPMB_SS_AUTH_KEY_SIZE;
 	return 0;
 }
